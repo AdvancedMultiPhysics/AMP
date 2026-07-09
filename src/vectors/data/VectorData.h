@@ -3,6 +3,7 @@
 
 #include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
 #include "AMP/vectors/Scalar.h"
@@ -870,7 +871,7 @@ public: // Write/read restart data
 
     VectorData( int64_t fid, AMP::IO::RestartManager *manager );
 
-    const AMP::Utilities::ComputeStream d_stream;
+    const AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:                   // Internal data
     size_t d_localSize  = 0; //! Number of local values
@@ -880,10 +881,9 @@ protected:                   // Internal data
     // Friends
     friend class VectorOperations;
 
-
 public:
     //! Default constructors
-    VectorData() : d_stream( AMP::AMPManager::getDefaultComputeStream() ) {}
+    VectorData() : d_acceleration_context( AMP::AMPManager::getDefaultAccelerationContext() ) {}
     VectorData( const VectorData & ) = delete;
 };
 

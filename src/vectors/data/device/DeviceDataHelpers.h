@@ -1,6 +1,7 @@
 #ifndef included_AMP_DeviceDataHelpers_h
 #define included_AMP_DeviceDataHelpers_h
 
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/device/Device.h"
 
 namespace AMP {
@@ -21,31 +22,31 @@ public:
     static bool containsIndex( const size_t N,
                                const size_t *indices,
                                const size_t i,
-                               AMP::Utilities::ComputeStream stream );
+                               const AMP::Utilities::AccelerationContext &ctx );
 
     static bool allGhostIndices( const size_t N,
                                  const size_t *indices,
                                  const size_t start,
                                  const size_t end,
-                                 AMP::Utilities::ComputeStream stream );
+                                 const AMP::Utilities::AccelerationContext &ctx );
 
     static void setValuesByIndex( size_t N,
                                   const size_t *indices,
                                   const STYPE *src,
                                   DTYPE *dst,
-                                  AMP::Utilities::ComputeStream stream );
+                                  const AMP::Utilities::AccelerationContext &ctx );
 
     static void addValuesByIndex( size_t N,
                                   const size_t *indices,
                                   const STYPE *src,
                                   DTYPE *dst,
-                                  AMP::Utilities::ComputeStream stream );
+                                  const AMP::Utilities::AccelerationContext &ctx );
 
     static void getValuesByIndex( size_t N,
                                   const size_t *indices,
                                   const STYPE *src,
                                   DTYPE *dst,
-                                  AMP::Utilities::ComputeStream stream );
+                                  const AMP::Utilities::AccelerationContext &ctx );
 
     static void setGhostValuesByGlobalID( const size_t gsize,
                                           const size_t *globalIDs,
@@ -55,7 +56,7 @@ public:
                                           const STYPE *src,
                                           const size_t dst_size,
                                           DTYPE *dst,
-                                          AMP::Utilities::ComputeStream stream );
+                                          const AMP::Utilities::AccelerationContext &ctx );
 
     static void addGhostValuesByGlobalID( const size_t gsize,
                                           const size_t *globalIDs,
@@ -65,7 +66,7 @@ public:
                                           const STYPE *src,
                                           const size_t dst_size,
                                           DTYPE *dst,
-                                          AMP::Utilities::ComputeStream stream );
+                                          const AMP::Utilities::AccelerationContext &ctx );
 
     static void getGhostValuesByGlobalID( const size_t gsize,
                                           const size_t *globalIDs,
@@ -76,7 +77,7 @@ public:
                                           const STYPE *src1,
                                           const STYPE *src2,
                                           DTYPE *dst,
-                                          AMP::Utilities::ComputeStream stream );
+                                          const AMP::Utilities::AccelerationContext &ctx );
 
     static void getGhostAddValuesByGlobalID( const size_t gsize,
                                              const size_t *globalIDs,
@@ -86,7 +87,7 @@ public:
                                              const size_t src_size,
                                              const STYPE *src,
                                              DTYPE *dst,
-                                             AMP::Utilities::ComputeStream stream );
+                                             const AMP::Utilities::AccelerationContext &ctx );
 };
 
 } // namespace LinearAlgebra

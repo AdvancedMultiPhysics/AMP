@@ -2,11 +2,13 @@
 #define included_AMP_AMPManager
 
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/device/Device.h"
 
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -116,8 +118,12 @@ public:
      */
     int default_OpenMP_threads = 0;
 
-    bool amp_owns_default_compute_stream            = true;
-    Utilities::ComputeStream default_compute_stream = nullptr;
+    /*!
+     * Default context for accelerator information, mainly useful in GPU-enabled builds
+     * other contexts can be built as needed, but this will always exist to provide
+     * a stream to enqueue work on and Kokkos execution spaces compatible with that stream
+     */
+    Utilities::AccelerationContext acceleration_context;
 
 private:
     friend class AMPManager;
@@ -205,9 +211,14 @@ public:
     //! Get the global comm
     static const AMP::AMP_MPI &getCommWorld();
 
-    static Utilities::ComputeStream getDefaultComputeStream()
+    static const Utilities::ComputeStream getDefaultComputeStream()
     {
-        return d_properties.default_compute_stream;
+        return d_properties.acceleration_context.getStream();
+    }
+
+    static const Utilities::AccelerationContext &getDefaultAccelerationContext()
+    {
+        return d_properties.acceleration_context;
     }
 
     //! Set the global comm
@@ -236,7 +247,7 @@ private:
     static double start_HYPRE();
     static double initDevices();
     static double bindDevices();
-    static double freeDevices();
+    static double setupAccelerationContext();
     static double start_OpenMP();
     static double stop_SAMRAI();
     static double stop_HYPRE();

@@ -58,7 +58,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
                                                    B_cols_loc,
                                                    B_coeffs,
                                                    C_rs,
-                                                   C_data->d_stream );
+                                                   C_data->d_acceleration_context.getStream() );
 
     // Get nnz for C and allocate internals
     auto C_nnz = static_cast<lidx_t>( spgemm.getCnnz() );
@@ -76,7 +76,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
     // Convert the local indices to globals to make merges easier
     if ( C_data->isDiag() ) {
         const auto first_col = C_data->beginCol();
-        thrust::transform( thrust::device.on( C_data->d_stream ),
+        thrust::transform( thrust::device.on( C_data->d_acceleration_context.getStream() ),
                            C_cols_loc,
                            C_cols_loc + C_nnz,
                            C_cols,
@@ -86,7 +86,7 @@ void CSRMatrixSpGEMMDevice<Config>::multiplyLocal( std::shared_ptr<localmatrixda
     } else {
         const auto colmap = B_data->getColumnMap();
         thrust::transform(
-            thrust::device.on( C_data->d_stream ),
+            thrust::device.on( C_data->d_acceleration_context.getStream() ),
             C_cols_loc,
             C_cols_loc + C_nnz,
             C_cols,

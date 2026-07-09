@@ -90,7 +90,8 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
     if ( useGPU ) {
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        AMP::Utilities::Algorithms::fill_n( data, N, alpha, x.getMemoryLocation(), x.d_stream );
+        AMP::Utilities::Algorithms::fill_n(
+            data, N, alpha, x.getMemoryLocation(), x.d_acceleration_context );
     } else {
         // Default to cpu version
         auto curMe = x.begin<TYPE>();
@@ -114,7 +115,7 @@ void VectorOperationsDevice<TYPE>::setRandomValues( VectorData &x )
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     TYPE *data     = x.getRawDataBlock<TYPE>( 0 );
     const size_t N = x.sizeOfDataBlock( 0 );
-    DeviceOperationsHelpers<TYPE>::setRandomValues( N, data, x.d_stream );
+    DeviceOperationsHelpers<TYPE>::setRandomValues( N, data, x.d_acceleration_context );
     // Call makeConsistent to leave the vector in a consistent state
     x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -136,7 +137,7 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in, VectorData &x 
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::scale( alpha, N, data, x.d_stream );
+        DeviceOperationsHelpers<TYPE>::scale( alpha, N, data, x.d_acceleration_context );
         x.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -156,7 +157,7 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto N     = y.sizeOfDataBlock( 0 );
         auto alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::scale( alpha, N, xdata, ydata, y.d_stream );
+        DeviceOperationsHelpers<TYPE>::scale( alpha, N, xdata, ydata, y.d_acceleration_context );
         y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -174,7 +175,7 @@ void VectorOperationsDevice<TYPE>::add( const VectorData &x, const VectorData &y
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         auto N     = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::add( N, xdata, ydata, zdata, z.d_stream );
+        DeviceOperationsHelpers<TYPE>::add( N, xdata, ydata, zdata, z.d_acceleration_context );
         z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -194,7 +195,7 @@ void VectorOperationsDevice<TYPE>::subtract( const VectorData &x,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::subtract( N, xdata, ydata, zdata, z.d_stream );
+        DeviceOperationsHelpers<TYPE>::subtract( N, xdata, ydata, zdata, z.d_acceleration_context );
         z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -214,7 +215,7 @@ void VectorOperationsDevice<TYPE>::multiply( const VectorData &x,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::multiply( N, xdata, ydata, zdata, z.d_stream );
+        DeviceOperationsHelpers<TYPE>::multiply( N, xdata, ydata, zdata, z.d_acceleration_context );
         z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -232,7 +233,7 @@ void VectorOperationsDevice<TYPE>::divide( const VectorData &x, const VectorData
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::divide( N, xdata, ydata, zdata, z.d_stream );
+        DeviceOperationsHelpers<TYPE>::divide( N, xdata, ydata, zdata, z.d_acceleration_context );
         z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -250,7 +251,7 @@ void VectorOperationsDevice<TYPE>::reciprocal( const VectorData &x, VectorData &
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::reciprocal( N, xdata, ydata, y.d_stream );
+        DeviceOperationsHelpers<TYPE>::reciprocal( N, xdata, ydata, y.d_acceleration_context );
         y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -275,7 +276,7 @@ void VectorOperationsDevice<TYPE>::linearSum( const Scalar &alpha_in,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::linearSum( alpha, N, xdata, beta, ydata, zdata, z.d_stream );
+        DeviceOperationsHelpers<TYPE>::linearSum( alpha, N, xdata, beta, ydata, zdata, z.d_acceleration_context );
         z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -314,7 +315,7 @@ void VectorOperationsDevice<TYPE>::abs( const VectorData &x, VectorData &y )
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::abs( N, xdata, ydata, y.d_stream );
+        DeviceOperationsHelpers<TYPE>::abs( N, xdata, ydata, y.d_acceleration_context );
         y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -334,7 +335,7 @@ void VectorOperationsDevice<TYPE>::addScalar( const VectorData &x,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::addScalar( N, xdata, alpha, ydata, y.d_stream );
+        DeviceOperationsHelpers<TYPE>::addScalar( N, xdata, alpha, ydata, y.d_acceleration_context );
         y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -351,7 +352,7 @@ void VectorOperationsDevice<TYPE>::setMin( const Scalar &alpha_in, VectorData &y
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::setMin( N, alpha, ydata, y.d_stream );
+        DeviceOperationsHelpers<TYPE>::setMin( N, alpha, ydata, y.d_acceleration_context );
         y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -368,7 +369,7 @@ void VectorOperationsDevice<TYPE>::setMax( const Scalar &alpha_in, VectorData &y
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::setMax( N, alpha, ydata, y.d_stream );
+        DeviceOperationsHelpers<TYPE>::setMax( N, alpha, ydata, y.d_acceleration_context );
         y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -384,7 +385,7 @@ Scalar VectorOperationsDevice<TYPE>::localMin( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMin( N, xdata, x.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localMin( N, xdata, x.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMin( x );
@@ -399,7 +400,7 @@ Scalar VectorOperationsDevice<TYPE>::localMax( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMax( N, xdata, x.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localMax( N, xdata, x.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMax( x );
@@ -414,7 +415,7 @@ Scalar VectorOperationsDevice<TYPE>::localSum( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localSum( N, xdata, x.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localSum( N, xdata, x.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localSum( x );
@@ -429,7 +430,7 @@ Scalar VectorOperationsDevice<TYPE>::localL1Norm( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localL1Norm( N, xdata, x.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localL1Norm( N, xdata, x.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localL1Norm( x );
@@ -444,7 +445,7 @@ Scalar VectorOperationsDevice<TYPE>::localL2Norm2( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localL2Norm2( N, xdata, x.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localL2Norm2( N, xdata, x.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localL2Norm2( x );
@@ -459,7 +460,7 @@ Scalar VectorOperationsDevice<TYPE>::localMaxNorm( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMaxNorm( N, xdata, x.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localMaxNorm( N, xdata, x.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMaxNorm( x );
@@ -475,7 +476,7 @@ Scalar VectorOperationsDevice<TYPE>::localDot( const VectorData &x, const Vector
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localDot( N, xdata, ydata, y.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localDot( N, xdata, ydata, y.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localDot( x, y );
@@ -492,7 +493,7 @@ Scalar VectorOperationsDevice<TYPE>::localMinQuotient( const VectorData &x,
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMinQuotient( N, xdata, ydata, y.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localMinQuotient( N, xdata, ydata, y.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMinQuotient( x, y );
@@ -508,7 +509,7 @@ Scalar VectorOperationsDevice<TYPE>::localWrmsNorm( const VectorData &x, const V
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localWrmsNorm( N, xdata, ydata, y.d_stream );
+        return DeviceOperationsHelpers<TYPE>::localWrmsNorm( N, xdata, ydata, y.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localWrmsNorm( x, y );

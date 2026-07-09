@@ -29,13 +29,9 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, cudaStream_t )
-    {
-        T *ptr;
-        auto err = cudaMallocHost( &ptr, n * sizeof( T ) );
-        checkCudaErrors( err );
-        return ptr;
-    }
+    T *allocate( size_t n, cudaStream_t ) { return allocate( n ); }
+
+    T *allocate( size_t n, const AMP::Utilities::AccelerationContext & ) { return allocate( n ); }
 
     void deallocate( T *p, size_t )
     {
@@ -44,10 +40,11 @@ public:
         checkCudaErrors( err );
     }
 
-    void deallocate( T *p, size_t, cudaStream_t )
+    void deallocate( T *p, size_t n, cudaStream_t ) { deallocate( p, n ); }
+
+    void deallocate( T *p, size_t n, const AMP::Utilities::AccelerationContext & )
     {
-        auto err = cudaFreeHost( p );
-        checkCudaErrors( err );
+        deallocate( p, n );
     }
 };
 
@@ -78,6 +75,11 @@ public:
         return ptr;
     }
 
+    T *allocate( size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    {
+        return allocate( n, ctx.getStream() );
+    }
+
     void deallocate( T *p, size_t )
     {
         AMP_WARNING( "non-stream aware: dev dealloc" );
@@ -89,6 +91,11 @@ public:
     {
         auto err = cudaFreeAsync( p, stream );
         checkCudaErrors( err );
+    }
+
+    void deallocate( T *p, size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    {
+        deallocate( p, n, ctx.getStream() );
     }
 };
 
@@ -125,6 +132,11 @@ public:
         return ptr;
     }
 
+    T *allocate( size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    {
+        return allocate( n, ctx.getStream() );
+    }
+
     void deallocate( T *p, size_t )
     {
         AMP_WARNING( "non-stream aware: managed dealloc" );
@@ -136,6 +148,11 @@ public:
     {
         auto err = cudaFree( p );
         checkCudaErrors( err );
+    }
+
+    void deallocate( T *p, size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    {
+        deallocate( p, n, ctx.getStream() );
     }
 };
 

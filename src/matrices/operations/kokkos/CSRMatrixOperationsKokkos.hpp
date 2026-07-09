@@ -139,8 +139,10 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
         std::vector<size_t> rcols;
         offdMatrix->getColumnMap( rcols );
         auto vvals_d = offdMatrix->makeScalarArray( rcols.size() );
-        AMP::Utilities::Algorithms::zero_n(
-            vvals_d.get(), rcols.size(), localmatrixdata_t::d_memory_location, A.d_stream );
+        AMP::Utilities::Algorithms::zero_n( vvals_d.get(),
+                                            rcols.size(),
+                                            localmatrixdata_t::d_memory_location,
+                                            A.d_acceleration_context );
         std::vector<scalar_t> vvals_h( rcols.size() );
 
         d_localops_offd->multTranspose( inDataBlock,
@@ -155,13 +157,8 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
                                             vvals_d.get(),
                                             localmatrixdata_t::d_memory_location,
                                             rcols.size(),
-                                            A.d_stream );
-    #ifdef AMP_USE_DEVICE
-        if constexpr ( localmatrixdata_t::d_memory_location >=
-                       AMP::Utilities::MemoryType::managed ) {
-            deviceStreamSynchronize( A.d_stream );
-        }
-    #endif
+                                            A.d_acceleration_context );
+        A.d_acceleration_context.synchronizeStream();
 
         // copy rcols and vvals into std::vectors and write out
         outData->addValuesByGlobalID(
@@ -504,8 +501,8 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm =
-        AMP::Utilities::Algorithms::max_element( sums.data(), nRows, Config::mem_loc, A.d_stream );
+    auto max_norm = AMP::Utilities::Algorithms::max_element(
+        sums.data(), nRows, Config::mem_loc, A.d_acceleration_context );
     AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }

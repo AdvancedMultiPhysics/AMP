@@ -5,6 +5,7 @@
 
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
@@ -299,7 +300,7 @@ public: // Write/read restart data
 
     std::shared_ptr<MatrixParametersBase> d_pParameters;
 
-    const AMP::Utilities::ComputeStream d_stream;
+    const AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:
     // unique hash to identify this object

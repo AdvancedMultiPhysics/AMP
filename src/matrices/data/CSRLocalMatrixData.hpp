@@ -48,7 +48,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
                                                 bool is_diag,
                                                 bool is_symbolic,
                                                 uint64_t hash )
-    : d_stream( AMP::AMPManager::getDefaultComputeStream() ),
+    : d_acceleration_context( AMP::AMPManager::getDefaultAccelerationContext() ),
       d_first_row( first_row ),
       d_last_row( last_row ),
       d_first_col( first_col ),
@@ -80,7 +80,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
             d_nnz        = 0;
             d_row_starts = makeLidxArray( d_num_rows + 1 );
             AMP::Utilities::Algorithms::zero_n(
-                d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_stream );
+                d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_acceleration_context );
             return;
         }
 
@@ -92,13 +92,9 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
                                             &blParams.d_row_starts[d_num_rows],
                                             Config::mem_loc,
                                             1,
-                                            d_stream );
-#ifdef AMP_USE_DEVICE
+                                            d_acceleration_context );
         // need nnz immediately so must synchronize
-        if ( d_memory_location >= Utilities::MemoryType::managed ) {
-            deviceStreamSynchronize( d_stream );
-        }
-#endif
+        d_acceleration_context.synchronizeStream();
         d_nnz      = nnz;
         d_is_empty = ( d_nnz == 0 );
 
@@ -111,7 +107,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         // can always allocate row starts without external information
         d_row_starts = makeLidxArray( d_num_rows + 1 );
         AMP::Utilities::Algorithms::zero_n(
-            d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_stream );
+            d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_acceleration_context );
 
         const auto &getRow = matParams->getRowFunction();
 
@@ -187,7 +183,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
         d_is_empty   = true;
         d_row_starts = makeLidxArray( d_num_rows + 1 );
         AMP::Utilities::Algorithms::zero_n(
-            d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_stream );
+            d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_acceleration_context );
         return;
     }
 
@@ -208,7 +204,7 @@ size_t *CSRLocalMatrixData<Config>::getColumnMapSizeT() const
                                               d_cols_unq.get(),
                                               Config::mem_loc,
                                               d_ncols_unq,
-                                              d_stream );
+                                              d_acceleration_context );
     }
     return d_cols_unq_size_t.get();
 }
@@ -285,10 +281,11 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
         if ( block->isEmpty() ) {
             continue;
         }
-        CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ( block->d_row_starts.get(),
-                                                                nrows,
-                                                                concat_matrix->d_row_starts.get(),
-                                                                concat_matrix->d_stream );
+        CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
+            block->d_row_starts.get(),
+            nrows,
+            concat_matrix->d_row_starts.get(),
+            concat_matrix->d_acceleration_context );
     }
 
     // trigger allocations
@@ -297,7 +294,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
     // Create counters for non-zeros entered into each row
     auto row_nnz_ctrs = concat_matrix->makeLidxArray( nrows );
     AMP::Utilities::Algorithms::zero_n(
-        row_nnz_ctrs.get(), nrows, Config::mem_loc, concat_matrix->d_stream );
+        row_nnz_ctrs.get(), nrows, Config::mem_loc, concat_matrix->d_acceleration_context );
 
     // loop back over blocks and write into new matrix
     for ( auto it : blocks ) {
@@ -313,7 +310,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatHo
                                                             row_nnz_ctrs.get(),
                                                             concat_matrix->d_cols.get(),
                                                             concat_matrix->d_coeffs.get(),
-                                                            concat_matrix->d_stream );
+                                                            concat_matrix->d_acceleration_context );
     }
 
     return concat_matrix;
@@ -347,14 +344,15 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     lidx_t cat_row = 0; // counter for which row we are on in concat_matrix
     for ( auto it : blocks ) {
         block = it.second;
-        CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ( block->d_row_starts.get(),
-                                                              block->d_cols.get(),
-                                                              block->d_num_rows,
-                                                              first_col,
-                                                              last_col,
-                                                              is_diag,
-                                                              &concat_matrix->d_row_starts[cat_row],
-                                                              concat_matrix->d_stream );
+        CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
+            block->d_row_starts.get(),
+            block->d_cols.get(),
+            block->d_num_rows,
+            first_col,
+            last_col,
+            is_diag,
+            &concat_matrix->d_row_starts[cat_row],
+            concat_matrix->d_acceleration_context );
         cat_row += block->d_num_rows;
     }
 
@@ -366,18 +364,19 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRLocalMatrixData<Config>::ConcatVe
     for ( auto it : blocks ) {
         block = it.second;
         if ( !block->d_is_empty ) {
-            CSRMatrixDataHelpers<Config>::ConcatVerticalFill( block->d_row_starts.get(),
-                                                              block->d_cols.get(),
-                                                              block->d_coeffs.get(),
-                                                              block->d_num_rows,
-                                                              first_col,
-                                                              last_col,
-                                                              is_diag,
-                                                              cat_row,
-                                                              concat_matrix->d_row_starts.get(),
-                                                              concat_matrix->d_cols.get(),
-                                                              concat_matrix->d_coeffs.get(),
-                                                              concat_matrix->d_stream );
+            CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
+                block->d_row_starts.get(),
+                block->d_cols.get(),
+                block->d_coeffs.get(),
+                block->d_num_rows,
+                first_col,
+                last_col,
+                is_diag,
+                cat_row,
+                concat_matrix->d_row_starts.get(),
+                concat_matrix->d_cols.get(),
+                concat_matrix->d_coeffs.get(),
+                concat_matrix->d_acceleration_context );
         }
         cat_row += block->d_num_rows;
     }
@@ -429,7 +428,7 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
 
     if ( d_is_diag ) {
         CSRMatrixDataHelpers<Config>::GlobalToLocalDiag(
-            d_cols.get(), d_nnz, d_first_col, d_cols_loc.get(), d_stream );
+            d_cols.get(), d_nnz, d_first_col, d_cols_loc.get(), d_acceleration_context );
     } else {
         // for offd setup column map as part of the process
 
@@ -438,19 +437,27 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
         // that acts within a row. This jumbles all rows together.
         auto cols_tmp = makeGidxArray( d_nnz );
         AMP::Utilities::Algorithms::copy_n(
-            cols_tmp.get(), d_cols.get(), d_nnz, Config::mem_loc, d_stream );
-        AMP::Utilities::Algorithms::sort( cols_tmp.get(), d_nnz, Config::mem_loc, d_stream );
+            cols_tmp.get(), d_cols.get(), d_nnz, Config::mem_loc, d_acceleration_context );
+        AMP::Utilities::Algorithms::sort(
+            cols_tmp.get(), d_nnz, Config::mem_loc, d_acceleration_context );
 
         // make sorted entries unique and copy
         d_ncols_unq = static_cast<lidx_t>( AMP::Utilities::Algorithms::unique(
-            cols_tmp.get(), d_nnz, Config::mem_loc, d_stream ) );
+            cols_tmp.get(), d_nnz, Config::mem_loc, d_acceleration_context ) );
         d_cols_unq  = makeGidxArray( d_ncols_unq );
-        AMP::Utilities::Algorithms::copy_n(
-            d_cols_unq.get(), cols_tmp.get(), d_ncols_unq, Config::mem_loc, d_stream );
+        AMP::Utilities::Algorithms::copy_n( d_cols_unq.get(),
+                                            cols_tmp.get(),
+                                            d_ncols_unq,
+                                            Config::mem_loc,
+                                            d_acceleration_context );
         cols_tmp.reset();
 
-        CSRMatrixDataHelpers<Config>::GlobalToLocalOffd(
-            d_cols.get(), d_nnz, d_cols_unq.get(), d_ncols_unq, d_cols_loc.get(), d_stream );
+        CSRMatrixDataHelpers<Config>::GlobalToLocalOffd( d_cols.get(),
+                                                         d_nnz,
+                                                         d_cols_unq.get(),
+                                                         d_ncols_unq,
+                                                         d_cols_loc.get(),
+                                                         d_acceleration_context );
     }
 
 // Sync before freeing d_cols: hipFree/cudaFree do not wait for prior GPU
@@ -459,11 +466,7 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
 // a no-op deleter and is unaffected; ConcatVertical (redistribution, transpose)
 // uses a real hipFree deleter and requires this sync.
 #warning imay: Is this still needed with streams and stream-aware allocators?
-#ifdef AMP_USE_DEVICE
-    if ( d_memory_location >= Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( d_stream );
-    }
-#endif
+    d_acceleration_context.synchronizeStream();
     // free global cols as they should not be used from here on out
     d_cols.reset();
 }
@@ -486,11 +489,15 @@ void CSRLocalMatrixData<Config>::sortColumns()
                       "CSRLocalMatrixData::sortColumns Access to global columns required" );
 
     if ( d_is_diag ) {
-        CSRMatrixDataHelpers<Config>::SortColumnsDiag(
-            d_row_starts.get(), d_cols.get(), d_coeffs.get(), d_num_rows, d_first_col, d_stream );
+        CSRMatrixDataHelpers<Config>::SortColumnsDiag( d_row_starts.get(),
+                                                       d_cols.get(),
+                                                       d_coeffs.get(),
+                                                       d_num_rows,
+                                                       d_first_col,
+                                                       d_acceleration_context );
     } else {
         CSRMatrixDataHelpers<Config>::SortColumnsOffd(
-            d_row_starts.get(), d_cols.get(), d_coeffs.get(), d_num_rows, d_stream );
+            d_row_starts.get(), d_cols.get(), d_coeffs.get(), d_num_rows, d_acceleration_context );
     }
 }
 
@@ -535,7 +542,7 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
     const auto num_rows = numLocalRows();
     auto rs_out         = outData->d_row_starts.get();
     CSRMatrixDataHelpers<Config>::MaskCountNNZ(
-        d_row_starts.get(), mask, d_is_diag, num_rows, rs_out, d_stream );
+        d_row_starts.get(), mask, d_is_diag, num_rows, rs_out, d_acceleration_context );
     outData->setNNZ( true );
 
     // get output data fields and copy over masked out information
@@ -549,7 +556,7 @@ CSRLocalMatrixData<Config>::maskMatrixData( const typename CSRLocalMatrixData<Co
                                                     rs_out,
                                                     outData->d_cols_loc.get(),
                                                     outData->d_coeffs.get(),
-                                                    d_stream );
+                                                    d_acceleration_context );
         outData->d_cols.reset();
     } else {
         // unreachable for now
@@ -590,7 +597,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                           d_row_starts.get(),
                                           Config::mem_loc,
                                           d_num_rows + 1,
-                                          outData->d_stream );
+                                          outData->d_acceleration_context );
 
     if constexpr ( Config::allocator == ConfigOut::allocator && false ) {
         // migrate is only being called for type casting
@@ -605,7 +612,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                                   d_cols_loc.get(),
                                                   Config::mem_loc,
                                                   d_nnz,
-                                                  outData->d_stream );
+                                                  outData->d_acceleration_context );
         }
         if constexpr ( Config::scalar_id == ConfigOut::scalar_id ) {
             outData->d_coeffs = d_coeffs;
@@ -616,7 +623,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                                   d_coeffs.get(),
                                                   Config::mem_loc,
                                                   d_nnz,
-                                                  outData->d_stream );
+                                                  outData->d_acceleration_context );
         }
         if constexpr ( Config::gidx == ConfigOut::gidx ) {
             outData->d_cols     = d_cols;
@@ -629,7 +636,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                                       d_cols.get(),
                                                       Config::mem_loc,
                                                       d_nnz,
-                                                      outData->d_stream );
+                                                      outData->d_acceleration_context );
             }
             if ( d_cols_unq.get() != nullptr ) {
                 outData->d_cols_unq = outData->makeGidxArray( d_ncols_unq );
@@ -638,7 +645,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                                       d_cols_unq.get(),
                                                       Config::mem_loc,
                                                       d_ncols_unq,
-                                                      outData->d_stream );
+                                                      outData->d_acceleration_context );
             }
         }
     } else {
@@ -651,13 +658,13 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                               d_cols_loc.get(),
                                               Config::mem_loc,
                                               d_nnz,
-                                              outData->d_stream );
+                                              outData->d_acceleration_context );
         AMP::Utilities::Algorithms::copyCast( outData->d_coeffs.get(),
                                               ConfigOut::mem_loc,
                                               d_coeffs.get(),
                                               Config::mem_loc,
                                               d_nnz,
-                                              outData->d_stream );
+                                              outData->d_acceleration_context );
 
         if ( d_cols.get() != nullptr ) {
             outData->d_cols = outData->makeGidxArray( d_nnz );
@@ -666,7 +673,7 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                                   d_cols.get(),
                                                   Config::mem_loc,
                                                   d_nnz,
-                                                  outData->d_stream );
+                                                  outData->d_acceleration_context );
         }
         if ( d_cols_unq.get() != nullptr ) {
             outData->d_cols_unq = outData->makeGidxArray( d_ncols_unq );
@@ -675,16 +682,10 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                                   d_cols_unq.get(),
                                                   Config::mem_loc,
                                                   d_ncols_unq,
-                                                  outData->d_stream );
+                                                  outData->d_acceleration_context );
         }
     }
-
-#ifdef AMP_USE_DEVICE
-    if constexpr ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ||
-                   ConfigOut::mem_loc >= AMP::Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( outData->d_stream );
-    }
-#endif
+    d_acceleration_context.synchronizeStream();
 
     return outData;
 }
@@ -708,18 +709,13 @@ void CSRLocalMatrixData<Config>::copyFrom( std::shared_ptr<const CSRLocalMatrixD
         return;
     }
 
-    if constexpr ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ) {
-        AMP_ASSERT( d_stream == AMP::AMPManager::getDefaultComputeStream() );
-    }
-
-    AMP::Utilities::Algorithms::copyCast(
-        d_coeffs.get(), Config::mem_loc, in->d_coeffs.get(), ConfigIn::mem_loc, d_nnz, d_stream );
-
-#ifdef AMP_USE_DEVICE
-    if constexpr ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( d_stream );
-    }
-#endif
+    AMP::Utilities::Algorithms::copyCast( d_coeffs.get(),
+                                          Config::mem_loc,
+                                          in->d_coeffs.get(),
+                                          ConfigIn::mem_loc,
+                                          d_nnz,
+                                          d_acceleration_context );
+    d_acceleration_context.synchronizeStream();
 }
 
 template<typename Config>
@@ -769,7 +765,7 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
                                                      transposeData->d_coeffs.get(),
                                                      counters.get(),
                                                      reduce_space.get(),
-                                                     d_stream );
+                                                     d_acceleration_context );
     } else {
         AMP_INSIST(
             d_cols.get(),
@@ -788,7 +784,7 @@ CSRLocalMatrixData<Config>::transpose( std::shared_ptr<MatrixParametersBase> par
                                                      transposeData->d_coeffs.get(),
                                                      counters.get(),
                                                      reduce_space.get(),
-                                                     d_stream );
+                                                     d_acceleration_context );
     }
 
     return transposeData;
@@ -815,10 +811,13 @@ void CSRLocalMatrixData<Config>::setNNZ( lidx_t tot_nnz )
         d_coeffs = makeScalarArray( d_nnz );
     }
 
-    AMP::Utilities::Algorithms::zero_n( d_cols.get(), d_nnz, Config::mem_loc, d_stream );
-    AMP::Utilities::Algorithms::zero_n( d_cols_loc.get(), d_nnz, Config::mem_loc, d_stream );
+    AMP::Utilities::Algorithms::zero_n(
+        d_cols.get(), d_nnz, Config::mem_loc, d_acceleration_context );
+    AMP::Utilities::Algorithms::zero_n(
+        d_cols_loc.get(), d_nnz, Config::mem_loc, d_acceleration_context );
     if ( !d_is_symbolic ) {
-        AMP::Utilities::Algorithms::zero_n( d_coeffs.get(), d_nnz, Config::mem_loc, d_stream );
+        AMP::Utilities::Algorithms::zero_n(
+            d_coeffs.get(), d_nnz, Config::mem_loc, d_acceleration_context );
     }
 }
 
@@ -828,18 +827,24 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
     PROFILE( "CSRLocalMatrixData::setNNZ" );
 
     if ( do_accum ) {
-        AMP::Utilities::Algorithms::exclusive_scan(
-            d_row_starts.get(), d_num_rows + 1, d_row_starts.get(), 0, Config::mem_loc, d_stream );
+        AMP::Utilities::Algorithms::exclusive_scan( d_row_starts.get(),
+                                                    d_num_rows + 1,
+                                                    d_row_starts.get(),
+                                                    0,
+                                                    Config::mem_loc,
+                                                    d_acceleration_context );
     }
 
     if ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ) {
         const lidx_t *ptr_loc = d_row_starts.get() + d_num_rows;
-        AMP::Utilities::Algorithms::copy_n(
-            &d_nnz, AMP::Utilities::MemoryType::host, ptr_loc, Config::mem_loc, 1, d_stream );
-#ifdef AMP_USE_DEVICE
+        AMP::Utilities::Algorithms::copy_n( &d_nnz,
+                                            AMP::Utilities::MemoryType::host,
+                                            ptr_loc,
+                                            Config::mem_loc,
+                                            1,
+                                            d_acceleration_context );
         // need nnz before allocations below can be made
-        deviceStreamSynchronize( d_stream );
-#endif
+        d_acceleration_context.synchronizeStream();
     } else {
         // total nnz in all rows of block is last entry
         d_nnz = d_row_starts[d_num_rows];
@@ -858,10 +863,13 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
         d_coeffs = makeScalarArray( d_nnz );
     }
 
-    AMP::Utilities::Algorithms::zero_n( d_cols.get(), d_nnz, Config::mem_loc, d_stream );
-    AMP::Utilities::Algorithms::zero_n( d_cols_loc.get(), d_nnz, Config::mem_loc, d_stream );
+    AMP::Utilities::Algorithms::zero_n(
+        d_cols.get(), d_nnz, Config::mem_loc, d_acceleration_context );
+    AMP::Utilities::Algorithms::zero_n(
+        d_cols_loc.get(), d_nnz, Config::mem_loc, d_acceleration_context );
     if ( !d_is_symbolic ) {
-        AMP::Utilities::Algorithms::zero_n( d_coeffs.get(), d_nnz, Config::mem_loc, d_stream );
+        AMP::Utilities::Algorithms::zero_n(
+            d_coeffs.get(), d_nnz, Config::mem_loc, d_acceleration_context );
     }
 }
 
@@ -871,7 +879,7 @@ void CSRLocalMatrixData<Config>::setNNZ( const lidx_t *nnz,
 {
     // copy passed nnz vector into row_starts and call internal setNNZ
     AMP::Utilities::Algorithms::copy_n(
-        d_row_starts.get(), Config::mem_loc, nnz, nnz_loc, d_num_rows, d_stream );
+        d_row_starts.get(), Config::mem_loc, nnz, nnz_loc, d_num_rows, d_acceleration_context );
     setNNZ( true );
 }
 
@@ -895,7 +903,7 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
                                                                            bnd_lo,
                                                                            bnd_up,
                                                                            delete_per_row.get(),
-                                                                           d_stream );
+                                                                           d_acceleration_context );
 
     // if none to delete then done
     if ( num_delete == 0 ) {
@@ -906,7 +914,7 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     // as empty
     if ( d_nnz == num_delete ) {
         AMP::Utilities::Algorithms::zero_n(
-            d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_stream );
+            d_row_starts.get(), d_num_rows + 1, Config::mem_loc, d_acceleration_context );
         d_cols.reset();
         d_cols_unq.reset();
         d_cols_loc.reset();
@@ -930,8 +938,11 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
     }
 
     // new row starts is old minus running total of deleted entries
-    CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
-        d_row_starts.get(), delete_per_row.get(), d_num_rows, new_row_starts.get(), d_stream );
+    CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart( d_row_starts.get(),
+                                                             delete_per_row.get(),
+                                                             d_num_rows,
+                                                             new_row_starts.get(),
+                                                             d_acceleration_context );
 
     // coeffs is a masked copy
     // cols_loc is masked copy if this is diag block, otherwise
@@ -946,7 +957,7 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
                                                            new_row_starts.get(),
                                                            new_cols_loc.get(),
                                                            new_coeffs.get(),
-                                                           d_stream );
+                                                           d_acceleration_context );
     } else {
         CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd( d_row_starts.get(),
                                                            d_cols_loc.get(),
@@ -958,7 +969,7 @@ void CSRLocalMatrixData<Config>::removeRange( const scalar_t bnd_lo, const scala
                                                            new_row_starts.get(),
                                                            new_cols.get(),
                                                            new_coeffs.get(),
-                                                           d_stream );
+                                                           d_acceleration_context );
     }
 
     d_cols_unq.reset();
@@ -1007,10 +1018,10 @@ void CSRLocalMatrixData<Config>::printStats( bool verbose, bool show_zeros ) con
     if ( d_cols.get() ) {
         AMP::plog << "    min | max col: "
                   << AMP::Utilities::Algorithms::min_element(
-                         d_cols.get(), d_nnz, Config::mem_loc, d_stream )
+                         d_cols.get(), d_nnz, Config::mem_loc, d_acceleration_context )
                   << " | "
                   << AMP::Utilities::Algorithms::max_element(
-                         d_cols.get(), d_nnz, Config::mem_loc, d_stream )
+                         d_cols.get(), d_nnz, Config::mem_loc, d_acceleration_context )
                   << std::endl;
     }
 
@@ -1386,7 +1397,7 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
                                             d_row_starts.get(),
                                             Config::mem_loc,
                                             d_num_rows + 1,
-                                            d_stream );
+                                            d_acceleration_context );
 
         if ( d_ncols_unq > 0 && !d_is_diag ) {
             cols_unq.resize( d_ncols_unq );
@@ -1395,7 +1406,7 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
                                                 d_cols_unq.get(),
                                                 Config::mem_loc,
                                                 d_ncols_unq,
-                                                d_stream );
+                                                d_acceleration_context );
         }
 
         if ( d_nnz > 0 ) {
@@ -1405,7 +1416,7 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
                                                 d_cols_loc.get(),
                                                 Config::mem_loc,
                                                 d_nnz,
-                                                d_stream );
+                                                d_acceleration_context );
         }
 
         if ( d_nnz > 0 && !d_is_symbolic ) {
@@ -1415,16 +1426,12 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
                                                 d_coeffs.get(),
                                                 Config::mem_loc,
                                                 d_nnz,
-                                                d_stream );
+                                                d_acceleration_context );
         }
     }
 
-#ifdef AMP_USE_DEVICE
     // need fields host-side before writing them out
-    if ( d_memory_location >= Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( d_stream );
-    }
-#endif
+    d_acceleration_context.synchronizeStream();
 
     if ( d_num_rows > 0 ) {
         AMP_INSIST( row_starts.data(), "CSRLocalMatrixData::writeRestart: bad row starts" );
@@ -1446,7 +1453,7 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
 
 template<typename Config>
 CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager * )
-    : d_stream( AMP::AMPManager::getDefaultComputeStream() )
+    : d_acceleration_context( AMP::AMPManager::getDefaultAccelerationContext() )
 {
     signed char memory_location;
     IO::readHDF5( fid, "memory_location", memory_location );
@@ -1481,7 +1488,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
                                             row_starts.data(),
                                             AMP::Utilities::MemoryType::host,
                                             d_num_rows + 1,
-                                            d_stream );
+                                            d_acceleration_context );
     }
 
     if ( d_ncols_unq > 0 && !d_is_diag ) {
@@ -1491,7 +1498,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
                                             cols_unq.data(),
                                             AMP::Utilities::MemoryType::host,
                                             d_ncols_unq,
-                                            d_stream );
+                                            d_acceleration_context );
     }
 
     if ( d_nnz > 0 ) {
@@ -1501,7 +1508,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
                                             cols_loc.data(),
                                             AMP::Utilities::MemoryType::host,
                                             d_nnz,
-                                            d_stream );
+                                            d_acceleration_context );
     }
 
     if ( d_nnz && ( !d_is_symbolic ) ) {
@@ -1512,7 +1519,7 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( int64_t fid, AMP::IO::RestartMan
                                             coeffs.data(),
                                             AMP::Utilities::MemoryType::host,
                                             d_nnz,
-                                            d_stream );
+                                            d_acceleration_context );
     }
 }
 

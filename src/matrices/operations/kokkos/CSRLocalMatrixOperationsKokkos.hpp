@@ -433,8 +433,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::mult( const typename Config::scalar
         impl::mult(
             d_exec_host, in_view, alpha, nRows, rowstarts, cols_loc, coeffs, beta, out_view );
     } else {
-    #ifdef AMP_USE_DEVICE
-        impl::mult( Kokkos::DefaultExecutionSpace( A->d_stream ),
+        impl::mult( A->d_acceleration_context.getKokkosExecDefault(),
                     in_view,
                     alpha,
                     nRows,
@@ -443,9 +442,6 @@ void CSRLocalMatrixOperationsKokkos<Config>::mult( const typename Config::scalar
                     coeffs,
                     beta,
                     out_view );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -514,17 +510,13 @@ void CSRLocalMatrixOperationsKokkos<Config>::multTranspose(
     if ( !device_acc ) {
         impl::multTranspose( d_exec_host, in_view, nRows, rowstarts, cols_loc, coeffs, out_view );
     } else {
-    #ifdef AMP_USE_DEVICE
-        impl::multTranspose( Kokkos::DefaultExecutionSpace( A->d_stream ),
+        impl::multTranspose( A->d_acceleration_context.getKokkosExecDefault(),
                              in_view,
                              nRows,
                              rowstarts,
                              cols_loc,
                              coeffs,
                              out_view );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -543,14 +535,10 @@ void CSRLocalMatrixOperationsKokkos<Config>::scale( typename Config::scalar_t al
             Kokkos::RangePolicy( d_exec_host, 0, tnnz ),
             KOKKOS_LAMBDA( lidx_t n ) { coeffs( n ) *= alpha; } );
     } else {
-    #ifdef AMP_USE_DEVICE
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::scale",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, tnnz ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, tnnz ),
             KOKKOS_LAMBDA( lidx_t n ) { coeffs( n ) *= alpha; } );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -580,16 +568,12 @@ void CSRLocalMatrixOperationsKokkos<Config>::scale( typename Config::scalar_t al
                 Scale<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view, alpha ) );
     } else {
-    #ifdef AMP_USE_DEVICE
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::scale",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 Scale<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view, alpha ) );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -619,16 +603,12 @@ void CSRLocalMatrixOperationsKokkos<Config>::scaleInv( typename Config::scalar_t
                 ScaleInv<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view, alpha ) );
     } else {
-    #ifdef AMP_USE_DEVICE
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::scaleInv",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 ScaleInv<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view, alpha ) );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -673,10 +653,9 @@ void CSRLocalMatrixOperationsKokkos<Config>::axpy( typename Config::scalar_t alp
                 }
             } );
     } else {
-    #ifdef AMP_USE_DEVICE
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::axpy",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( Y->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( Y->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             KOKKOS_LAMBDA( lidx_t row ) {
                 for ( lidx_t iy = rsY[row]; iy < rsY[row + 1]; ++iy ) {
                     const auto yc = colslocY[iy];
@@ -688,9 +667,6 @@ void CSRLocalMatrixOperationsKokkos<Config>::axpy( typename Config::scalar_t alp
                     }
                 }
             } );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -703,11 +679,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::setScalar( typename Config::scalar_
     if constexpr ( !Config::device_accessible ) {
         Kokkos::deep_copy( d_exec_host, coeffs, alpha );
     } else {
-    #ifdef AMP_USE_DEVICE
-        Kokkos::deep_copy( Kokkos::DefaultExecutionSpace( A->d_stream ), coeffs, alpha );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
+        Kokkos::deep_copy( A->d_acceleration_context.getKokkosExecDefault(), coeffs, alpha );
     }
 }
 
@@ -748,16 +720,12 @@ void CSRLocalMatrixOperationsKokkos<Config>::setDiagonal( const typename Config:
                 SetDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view ) );
     } else {
-    #ifdef AMP_USE_DEVICE
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::setDiagonal",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 SetDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view ) );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -780,14 +748,10 @@ void CSRLocalMatrixOperationsKokkos<Config>::setIdentity( std::shared_ptr<localm
             Kokkos::RangePolicy( d_exec_host, 0, nRows ),
             KOKKOS_LAMBDA( lidx_t row ) { coeffs( rowstarts( row ) ) = 1.0; } );
     } else {
-    #ifdef AMP_USE_DEVICE
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::setIdentity",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             KOKKOS_LAMBDA( lidx_t row ) { coeffs( rowstarts( row ) ) = 1.0; } );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -823,16 +787,12 @@ void CSRLocalMatrixOperationsKokkos<Config>::extractDiagonal(
                 ExtractDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view ) );
     } else {
-    #ifdef AMP_USE_DEVICE
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::extractDiagonal",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 ExtractDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view ) );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -865,19 +825,15 @@ void CSRLocalMatrixOperationsKokkos<Config>::getRowSums( std::shared_ptr<localma
                 RowSums<Config, decltype( rowstarts ), decltype( coeffs ), decltype( buf_view )>(
                     rowstarts, coeffs, buf_view ) );
     } else {
-    #ifdef AMP_USE_DEVICE
         if ( zero_first ) {
-            Kokkos::deep_copy( Kokkos::DefaultExecutionSpace( A->d_stream ), buf_view, 0.0 );
+            Kokkos::deep_copy( A->d_acceleration_context.getKokkosExecDefault(), buf_view, 0.0 );
         }
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::getRowSums",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 RowSums<Config, decltype( rowstarts ), decltype( coeffs ), decltype( buf_view )>(
                     rowstarts, coeffs, buf_view ) );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -918,25 +874,21 @@ void CSRLocalMatrixOperationsKokkos<Config>::getRowSumsAbsolute(
                 CSRMatOpsKokkosFunctor::RemoveZeros<Config, decltype( buf_view )>( buf_view ) );
         }
     } else {
-    #ifdef AMP_USE_DEVICE
         if ( zero_first ) {
-            Kokkos::deep_copy( Kokkos::DefaultExecutionSpace( A->d_stream ), buf_view, 0.0 );
+            Kokkos::deep_copy( A->d_acceleration_context.getKokkosExecDefault(), buf_view, 0.0 );
         }
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::getRowSumsAbsolute",
-            Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 AbsRowSums<Config, decltype( rowstarts ), decltype( coeffs ), decltype( buf_view )>(
                     rowstarts, coeffs, buf_view ) );
         if ( remove_zeros ) {
             Kokkos::parallel_for(
                 "CSRMatrixOperationsKokkos::getRowSumsAbsolute(remove zeros)",
-                Kokkos::RangePolicy( Kokkos::DefaultExecutionSpace( A->d_stream ), 0, nRows ),
+                Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecDefault(), 0, nRows ),
                 CSRMatOpsKokkosFunctor::RemoveZeros<Config, decltype( buf_view )>( buf_view ) );
         }
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
     }
 }
 
@@ -955,11 +907,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::copy( std::shared_ptr<const localma
     if constexpr ( !Config::device_accessible ) {
         Kokkos::deep_copy( coeffsY, coeffsX );
     } else {
-    #ifdef AMP_USE_DEVICE
-        Kokkos::deep_copy( Kokkos::DefaultExecutionSpace( Y->d_stream ), coeffsY, coeffsX );
-    #else
-        AMP_ERROR( "Unrecognized memory space" );
-    #endif
+        Kokkos::deep_copy( Y->d_acceleration_context.getKokkosExecDefault(), coeffsY, coeffsX );
     }
 }
 

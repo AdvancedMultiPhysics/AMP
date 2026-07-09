@@ -3,6 +3,7 @@
 
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
@@ -180,7 +181,7 @@ public:
                                              d_cols_unq.get(),
                                              Config::mem_loc,
                                              d_ncols_unq,
-                                             d_stream );
+                                             d_acceleration_context );
         }
     }
 
@@ -227,8 +228,9 @@ public:
         using alloc_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<U>;
         alloc_t alloc;
         return std::shared_ptr<typename alloc_t::value_type[]>(
-            alloc.allocate( N, d_stream ), [N, &alloc, d_stream = d_stream]( auto p ) -> void {
-                alloc.deallocate( p, N, d_stream );
+            alloc.allocate( N, d_acceleration_context ),
+            [N, &alloc, d_acceleration_context = d_acceleration_context]( auto p ) -> void {
+                alloc.deallocate( p, N, d_acceleration_context );
             } );
     }
 
@@ -272,7 +274,7 @@ public:
     //! Memory location, set by examining type of Allocator
     static constexpr Utilities::MemoryType d_memory_location = Config::mem_loc;
 
-    const AMP::Utilities::ComputeStream d_stream;
+    const AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:
     /** \brief  Sort the columns/values within each row

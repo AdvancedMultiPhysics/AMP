@@ -127,14 +127,14 @@ CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> para
                                              diag_cols,
                                              Utilities::MemoryType::host,
                                              d_diag_matrix->d_nnz,
-                                             d_stream );
+                                             d_acceleration_context );
             if ( !d_offd_matrix->d_is_empty ) {
                 Utilities::Algorithms::copyCast( d_offd_matrix->d_cols.get(),
                                                  Config::mem_loc,
                                                  offd_cols,
                                                  Utilities::MemoryType::host,
                                                  d_offd_matrix->d_nnz,
-                                                 d_stream );
+                                                 d_acceleration_context );
             }
 
             // contents of rowHelper no longer useful, trigger deallocation
@@ -269,11 +269,7 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
         gathered_vals = comm_block->makeScalarArray( total_nnz );
     }
 
-#ifdef AMP_USE_DEVICE
-    if ( comm_block->d_memory_location >= Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( comm_block->d_stream );
-    }
-#endif
+    comm_block->d_acceleration_context.synchronizeStream();
 
     group_comm.gather( comm_block->d_row_starts.get(),
                        static_cast<int>( comm_block->d_num_rows + 1 ),
@@ -323,7 +319,7 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
                                        gathered_rs.get() + rs_pos,
                                        comm_block->d_memory_location,
                                        nrs,
-                                       d_stream );
+                                       d_acceleration_context );
         rs_pos += nrs;
 
         block->setNNZ( false );
@@ -333,13 +329,13 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
                                            gathered_cols.get() + nnz_pos,
                                            comm_block->d_memory_location,
                                            nnz,
-                                           d_stream );
+                                           d_acceleration_context );
             Utilities::Algorithms::copy_n( block->d_coeffs.get(),
                                            d_memory_location,
                                            gathered_vals.get() + nnz_pos,
                                            comm_block->d_memory_location,
                                            nnz,
-                                           d_stream );
+                                           d_acceleration_context );
         }
         nnz_pos += nnz;
 
@@ -398,9 +394,7 @@ std::shared_ptr<CSRMatrixData<ConfigOut>> CSRMatrixData<Config>::migrate() const
     outData->d_diag_matrix = d_diag_matrix->template migrate<ConfigOut>();
     outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
 
-#ifdef AMP_USE_DEVICE
-    deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
-#endif
+    outData->d_acceleration_context.synchronizeStream();
 
     outData->d_diag_matrix->d_hash = getComm().rand();
     if ( d_offd_matrix )
@@ -417,12 +411,7 @@ void CSRMatrixData<Config>::copyFrom( std::shared_ptr<const CSRMatrixData<Config
 
     d_diag_matrix->template copyFrom<ConfigIn>( in->d_diag_matrix );
     d_offd_matrix->template copyFrom<ConfigIn>( in->d_offd_matrix );
-
-#ifdef AMP_USE_DEVICE
-    if constexpr ( d_memory_location > AMP::Utilities::MemoryType::host ) {
-        deviceStreamSynchronize( AMP::AMPManager::getDefaultComputeStream() );
-    }
-#endif
+    d_acceleration_context.synchronizeStream();
 }
 
 template<typename Config>
@@ -609,11 +598,7 @@ void CSRMatrixData<Config>::assemble( bool force_dm_reset )
     globalToLocalColumns();
     resetDOFManagers( force_dm_reset );
 
-#ifdef AMP_USE_DEVICE
-    if ( d_memory_location >= AMP::Utilities::MemoryType::managed ) {
-        deviceStreamSynchronize( d_stream );
-    }
-#endif
+    d_acceleration_context.synchronizeStream();
 }
 
 template<typename Config>
@@ -714,13 +699,13 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     constexpr bool rows_migrated = Config::mem_loc > Utilities::MemoryType::host;
     gidx_t *rows_d               = nullptr;
     if constexpr ( rows_migrated ) {
-        rows_d = d_gidxAllocator.allocate( rows.size(), d_stream );
+        rows_d = d_gidxAllocator.allocate( rows.size(), d_acceleration_context );
         Utilities::Algorithms::copy_n( rows_d,
                                        Config::mem_loc,
                                        rows.data(),
                                        Utilities::MemoryType::host,
                                        rows.size(),
-                                       d_stream );
+                                       d_acceleration_context );
     }
     const gidx_t *rows_data = rows_migrated ? rows_d : rows.data();
 
@@ -732,7 +717,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                      d_diag_matrix->d_row_starts.get(),
                                                      d_offd_matrix->d_row_starts.get(),
                                                      sub_matrix->d_row_starts.get(),
-                                                     d_stream );
+                                                     d_acceleration_context );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
@@ -742,7 +727,7 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
     if ( sub_matrix->d_nnz == 0 ) {
         AMP_WARN_ONCE( "CSRMatrixData::subsetRows got zero NNZ in requested subset" );
         if ( rows_migrated ) {
-            d_gidxAllocator.deallocate( rows_d, rows.size(), d_stream );
+            d_gidxAllocator.deallocate( rows_d, rows.size(), d_acceleration_context );
         }
         return sub_matrix;
     }
@@ -762,10 +747,10 @@ CSRMatrixData<Config>::subsetRows( const std::vector<gidx_t> &rows ) const
                                                  sub_matrix->d_row_starts.get(),
                                                  sub_matrix->d_cols.get(),
                                                  sub_matrix->d_coeffs.get(),
-                                                 d_stream );
+                                                 d_acceleration_context );
 
     if ( rows_migrated ) {
-        d_gidxAllocator.deallocate( rows_d, rows.size(), d_stream );
+        d_gidxAllocator.deallocate( rows_d, rows.size(), d_acceleration_context );
     }
 
     return sub_matrix;
@@ -794,7 +779,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
                                                      d_offd_matrix->d_cols_unq.get(),
                                                      nrows,
                                                      sub_matrix->d_row_starts.get(),
-                                                     d_stream );
+                                                     d_acceleration_context );
 
     // call setNNZ with accumulation on to convert counts and allocate internally
     sub_matrix->setNNZ( true );
@@ -814,7 +799,7 @@ std::shared_ptr<CSRLocalMatrixData<Config>> CSRMatrixData<Config>::subsetCols(
                                                  sub_matrix->d_row_starts.get(),
                                                  sub_matrix->d_cols.get(),
                                                  sub_matrix->d_coeffs.get(),
-                                                 d_stream );
+                                                 d_acceleration_context );
 
     return sub_matrix;
 }

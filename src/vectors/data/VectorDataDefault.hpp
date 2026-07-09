@@ -57,9 +57,9 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
     this->d_globalSize = globalSize;
     this->d_localStart = start;
     this->d_data_owned = true;
-    this->d_data       = this->d_alloc.allocate( localSize, this->d_stream );
+    this->d_data       = this->d_alloc.allocate( localSize, this->d_acceleration_context );
     AMP::Utilities::Algorithms::zero_n(
-        this->d_data, localSize, d_memory_location, this->d_stream );
+        this->d_data, localSize, d_memory_location, this->d_acceleration_context );
 }
 
 template<typename TYPE, class Allocator>
@@ -83,7 +83,7 @@ template<typename TYPE, class Allocator>
 VectorDataDefault<TYPE, Allocator>::~VectorDataDefault()
 {
     if ( this->d_data_owned ) {
-        this->d_alloc.deallocate( this->d_data, this->d_localSize, this->d_stream );
+        this->d_alloc.deallocate( this->d_data, this->d_localSize, this->d_acceleration_context );
     }
 }
 
@@ -350,7 +350,7 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( int64_t fid,
 {
     AMP::Array<TYPE> data;
     IO::readHDF5( fid, "data", data );
-    d_data = this->d_alloc.allocate( this->d_localSize, this->d_stream );
+    d_data = this->d_alloc.allocate( this->d_localSize, this->d_acceleration_context );
     putRawData( data.data(), getTypeID<TYPE>(), AMP::Utilities::MemoryType::host );
 }
 

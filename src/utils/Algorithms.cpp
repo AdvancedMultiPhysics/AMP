@@ -2,36 +2,48 @@
 
 #include <complex>
 
-#define INST_SIMPLE( TYPE )                                                                \
-    template void AMP::Utilities::Algorithms::fill_n<TYPE>(                                \
-        TYPE *, const size_t, const TYPE, const MemoryType, ComputeStream );               \
-    template void AMP::Utilities::Algorithms::zero_n<TYPE>(                                \
-        TYPE *, const size_t, const MemoryType, ComputeStream );                           \
-    template void AMP::Utilities::Algorithms::exclusive_scan<TYPE>(                        \
-        const TYPE *, const size_t, TYPE *, const TYPE, const MemoryType, ComputeStream ); \
-    template void AMP::Utilities::Algorithms::inclusive_scan<TYPE>(                        \
-        const TYPE *, const size_t, TYPE *, const MemoryType, ComputeStream );             \
-    template void AMP::Utilities::Algorithms::sort<TYPE>(                                  \
-        TYPE *, const size_t, const MemoryType, ComputeStream );                           \
-    template TYPE AMP::Utilities::Algorithms::min_element<TYPE>(                           \
-        const TYPE *, const size_t, const MemoryType, ComputeStream );                     \
-    template TYPE AMP::Utilities::Algorithms::max_element<TYPE>(                           \
-        const TYPE *, const size_t, const MemoryType, ComputeStream );                     \
-    template TYPE AMP::Utilities::Algorithms::accumulate<TYPE>(                            \
-        const TYPE *, const size_t, const TYPE, const MemoryType, ComputeStream );         \
-    template size_t AMP::Utilities::Algorithms::unique<TYPE>(                              \
-        TYPE *, const size_t, const MemoryType, ComputeStream );
+#define INST_SIMPLE( TYPE )                                                                        \
+    template void AMP::Utilities::Algorithms::fill_n<TYPE>(                                        \
+        TYPE *, const size_t, const TYPE, const MemoryType, const AccelerationContext & );         \
+    template void AMP::Utilities::Algorithms::zero_n<TYPE>(                                        \
+        TYPE *, const size_t, const MemoryType, const AccelerationContext & );                     \
+    template void AMP::Utilities::Algorithms::exclusive_scan<TYPE>( const TYPE *,                  \
+                                                                    const size_t,                  \
+                                                                    TYPE *,                        \
+                                                                    const TYPE,                    \
+                                                                    const MemoryType,              \
+                                                                    const AccelerationContext & ); \
+    template void AMP::Utilities::Algorithms::inclusive_scan<TYPE>(                                \
+        const TYPE *, const size_t, TYPE *, const MemoryType, const AccelerationContext & );       \
+    template void AMP::Utilities::Algorithms::sort<TYPE>(                                          \
+        TYPE *, const size_t, const MemoryType, const AccelerationContext & );                     \
+    template TYPE AMP::Utilities::Algorithms::min_element<TYPE>(                                   \
+        const TYPE *, const size_t, const MemoryType, const AccelerationContext & );               \
+    template TYPE AMP::Utilities::Algorithms::max_element<TYPE>(                                   \
+        const TYPE *, const size_t, const MemoryType, const AccelerationContext & );               \
+    template TYPE AMP::Utilities::Algorithms::accumulate<TYPE>(                                    \
+        const TYPE *, const size_t, const TYPE, const MemoryType, const AccelerationContext & );   \
+    template size_t AMP::Utilities::Algorithms::unique<TYPE>(                                      \
+        TYPE *, const size_t, const MemoryType, const AccelerationContext & );
 
-#define INST_COPY( TYPE )                                                      \
-    template void AMP::Utilities::Algorithms::copy_n<TYPE>(                    \
-        TYPE *, const TYPE *, const size_t, const MemoryType, ComputeStream ); \
-    template void AMP::Utilities::Algorithms::copy_n<TYPE>(                    \
-        TYPE *, const MemoryType, const TYPE *, const MemoryType, const size_t, ComputeStream );
+#define INST_COPY( TYPE )                                                                    \
+    template void AMP::Utilities::Algorithms::copy_n<TYPE>(                                  \
+        TYPE *, const TYPE *, const size_t, const MemoryType, const AccelerationContext & ); \
+    template void AMP::Utilities::Algorithms::copy_n<TYPE>( TYPE *,                          \
+                                                            const MemoryType,                \
+                                                            const TYPE *,                    \
+                                                            const MemoryType,                \
+                                                            const size_t,                    \
+                                                            const AccelerationContext & );
 
 
-#define INST_COPYCAST( TDst, TSrc )                                 \
-    template void AMP::Utilities::Algorithms::copyCast<TDst, TSrc>( \
-        TDst *, const MemoryType, const TSrc *, const MemoryType, size_t, ComputeStream );
+#define INST_COPYCAST( TDst, TSrc )                                                   \
+    template void AMP::Utilities::Algorithms::copyCast<TDst, TSrc>( TDst *,           \
+                                                                    const MemoryType, \
+                                                                    const TSrc *,     \
+                                                                    const MemoryType, \
+                                                                    size_t,           \
+                                                                    const AccelerationContext & );
 
 INST_SIMPLE( int )
 INST_SIMPLE( unsigned long )

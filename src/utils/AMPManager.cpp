@@ -151,6 +151,8 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
     start_OpenMP();
     // Initialize Kokkos
     AMP::Utilities::initializeKokkos( argc, argv, d_properties );
+    // setup default compute stream and affiliated Kokkos execution space
+    setupAccelerationContext();
     // Initialize Hypre
     double hypre_time = start_HYPRE();
     // Initialize PETSc
@@ -212,8 +214,6 @@ void AMPManager::shutdown()
     double hypre_time = stop_HYPRE();
     // shutdown Kokkos
     AMP::Utilities::finalizeKokkos();
-    // free device compute stream
-    freeDevices();
     // Shutdown MPI
     auto MPI_start = std::chrono::steady_clock::now();
     comm_world     = AMP_COMM_NULL;
@@ -323,37 +323,31 @@ double AMPManager::bindDevices()
         deviceBind( device_id ); // Map MPI-process to a GPU
         deviceSynchronize();
     }
-
-    if ( d_properties.amp_owns_default_compute_stream ) {
-        deviceStreamCreate( &d_properties.default_compute_stream );
-    } else {
-        AMP_ERROR( "AMP can not use externally owned compute streams yet." );
-    }
-
-    void *tmp;
-    deviceMallocAsync( &tmp, 10, d_properties.default_compute_stream );
-    deviceFreeAsync( tmp, d_properties.default_compute_stream );
-    deviceStreamSynchronize( d_properties.default_compute_stream );
-
 #endif
     return getDuration( start );
 }
 
-double AMPManager::freeDevices()
+double AMPManager::setupAccelerationContext()
 {
-    if ( !d_properties.initialize_device )
-        return 0;
     auto start = std::chrono::steady_clock::now();
 #ifdef AMP_USE_DEVICE
+    // GPU-enabled build, create a stream for AMP to use by default,
+    // give it to the AMP default context, and let that context own it
+    Utilities::ComputeStream stream;
+    deviceStreamCreate( &stream );
+    d_properties.acceleration_context.setComputeStream( stream, true );
 
-    if ( d_properties.amp_owns_default_compute_stream ) {
-        deviceStreamDestroy( d_properties.default_compute_stream );
-    }
-
+    void *tmp;
+    deviceMallocAsync( &tmp, 10, stream );
+    deviceFreeAsync( tmp, stream );
+    deviceStreamSynchronize( stream );
+#else
+    // host only build, simply pass nullptr for stream and trigger
+    // internal construction of Kokkos execution spaces
+    d_properties.acceleration_context.setComputeStream( nullptr, false );
 #endif
     return getDuration( start );
 }
-
 
 /****************************************************************************
  * Initialize OpenMP                                                         *

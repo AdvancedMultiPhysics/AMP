@@ -121,12 +121,20 @@ void VectorOperationsOpenMP<TYPE>::copyCast( const VectorData &x, VectorData &y 
         AMP_ASSERT( N == x.sizeOfDataBlock( bid ) );
         if ( y.getType( 0 ) == getTypeID<float>() ) {
             auto ydata = y.getRawDataBlock<float>( bid );
-            AMP::Utilities::Algorithms::copyCast(
-                ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N, y.d_stream );
+            AMP::Utilities::Algorithms::copyCast( ydata,
+                                                  y.getMemoryLocation(),
+                                                  xdata,
+                                                  x.getMemoryLocation(),
+                                                  N,
+                                                  y.d_acceleration_context );
         } else if ( y.getType( 0 ) == getTypeID<double>() ) {
             auto ydata = y.getRawDataBlock<double>( bid );
-            AMP::Utilities::Algorithms::copyCast(
-                ydata, y.getMemoryLocation(), xdata, x.getMemoryLocation(), N, y.d_stream );
+            AMP::Utilities::Algorithms::copyCast( ydata,
+                                                  y.getMemoryLocation(),
+                                                  xdata,
+                                                  x.getMemoryLocation(),
+                                                  N,
+                                                  y.d_acceleration_context );
         } else {
             AMP_ERROR( "CopyCast only implemented for float or doubles." );
         }
