@@ -956,7 +956,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::copy( std::shared_ptr<const localma
         Kokkos::deep_copy( coeffsY, coeffsX );
     } else {
     #ifdef AMP_USE_DEVICE
-        Kokkos::deep_copy( Kokkos::DefaultExecutionSpace( A->d_stream ), coeffsY, coeffsX );
+        Kokkos::deep_copy( Kokkos::DefaultExecutionSpace( Y->d_stream ), coeffsY, coeffsX );
     #else
         AMP_ERROR( "Unrecognized memory space" );
     #endif

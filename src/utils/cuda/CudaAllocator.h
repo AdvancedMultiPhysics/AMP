@@ -112,14 +112,16 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, cudaStream_t stream )
+    T *allocate( size_t n, cudaStream_t )
     {
         T *ptr;
         auto err = cudaMallocManaged( &ptr, n * sizeof( T ), cudaMemAttachGlobal );
         checkCudaErrors( err );
-        err =
-            cudaStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), cudaMemAttachSingle );
-        checkCudaErrors( err );
+        // following will be needed some day, but is not currently functional
+        // err =
+        //     cudaStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), cudaMemAttachSingle
+        //     );
+        // checkCudaErrors( err );
         return ptr;
     }
 
