@@ -211,7 +211,7 @@ public:
     //! Get the global comm
     static const AMP::AMP_MPI &getCommWorld();
 
-    static const Utilities::ComputeStream getDefaultComputeStream()
+    static Utilities::ComputeStream getDefaultComputeStream()
     {
         return d_properties.acceleration_context.getStream();
     }

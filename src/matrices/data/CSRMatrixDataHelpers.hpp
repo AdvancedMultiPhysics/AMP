@@ -794,14 +794,14 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
             dim3 GridDim;
             setKernelDims( in_num_rows, offd_to_coo<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
             offd_to_coo<<<GridDim, BlockDim, 0, ctx.getStream()>>>( in_row_starts,
-                                                           in_cols,
-                                                           in_coeffs,
-                                                           in_num_rows,
-                                                           in_first_col,
-                                                           out_first_col,
-                                                           out_cols_loc,
-                                                           out_cols,
-                                                           out_coeffs );
+                                                                    in_cols,
+                                                                    in_coeffs,
+                                                                    in_num_rows,
+                                                                    in_first_col,
+                                                                    out_first_col,
+                                                                    out_cols_loc,
+                                                                    out_cols,
+                                                                    out_coeffs );
             getLastDeviceError( "CSRMatrixDataHelpers::TransposeOffd (to COO)" );
         }
 
@@ -921,19 +921,19 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill(
         dim3 GridDim;
         setKernelDims( num_rows, row_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         row_sub_fill<<<GridDim, BlockDim, 0, ctx.getStream()>>>( rows,
-                                                        num_rows,
-                                                        first_row,
-                                                        first_col,
-                                                        diag_row_starts,
-                                                        offd_row_starts,
-                                                        diag_cols_loc,
-                                                        offd_cols_loc,
-                                                        diag_coeffs,
-                                                        offd_coeffs,
-                                                        offd_colmap,
-                                                        out_row_starts,
-                                                        out_cols,
-                                                        out_coeffs );
+                                                                 num_rows,
+                                                                 first_row,
+                                                                 first_col,
+                                                                 diag_row_starts,
+                                                                 offd_row_starts,
+                                                                 diag_cols_loc,
+                                                                 offd_cols_loc,
+                                                                 diag_coeffs,
+                                                                 offd_coeffs,
+                                                                 offd_colmap,
+                                                                 out_row_starts,
+                                                                 out_cols,
+                                                                 out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::RowSubsetFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RowSubsetFill Undefined memory location" );
@@ -978,15 +978,15 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
         dim3 GridDim;
         setKernelDims( num_rows, col_sub_count<lidx_t, gidx_t>, BlockDim, GridDim );
         col_sub_count<<<GridDim, BlockDim, 0, ctx.getStream()>>>( idx_lo,
-                                                         idx_up,
-                                                         first_col,
-                                                         diag_row_starts,
-                                                         diag_cols_loc,
-                                                         offd_row_starts,
-                                                         offd_cols_loc,
-                                                         offd_cols_unq,
-                                                         num_rows,
-                                                         out_row_starts );
+                                                                  idx_up,
+                                                                  first_col,
+                                                                  diag_row_starts,
+                                                                  diag_cols_loc,
+                                                                  offd_row_starts,
+                                                                  offd_cols_loc,
+                                                                  offd_cols_unq,
+                                                                  num_rows,
+                                                                  out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetCountNNZ Undefined memory location" );
@@ -1039,19 +1039,19 @@ void CSRMatrixDataHelpers<Config>::ColSubsetFill(
         dim3 GridDim;
         setKernelDims( num_rows, col_sub_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         col_sub_fill<<<GridDim, BlockDim, 0, ctx.getStream()>>>( idx_lo,
-                                                        idx_up,
-                                                        first_col,
-                                                        diag_row_starts,
-                                                        diag_cols_loc,
-                                                        diag_coeffs,
-                                                        offd_row_starts,
-                                                        offd_cols_loc,
-                                                        offd_cols_unq,
-                                                        offd_coeffs,
-                                                        num_rows,
-                                                        out_row_starts,
-                                                        out_cols,
-                                                        out_coeffs );
+                                                                 idx_up,
+                                                                 first_col,
+                                                                 diag_row_starts,
+                                                                 diag_cols_loc,
+                                                                 diag_coeffs,
+                                                                 offd_row_starts,
+                                                                 offd_cols_loc,
+                                                                 offd_cols_unq,
+                                                                 offd_coeffs,
+                                                                 num_rows,
+                                                                 out_row_starts,
+                                                                 out_cols,
+                                                                 out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::ColSubsetFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ColSubsetFill Undefined memory location" );
@@ -1075,7 +1075,8 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
         dim3 BlockDim;
         dim3 GridDim;
         setKernelDims( num_rows, horz_cat_count<lidx_t>, BlockDim, GridDim );
-        horz_cat_count<<<GridDim, BlockDim, 0, ctx.getStream()>>>( in_row_starts, num_rows, out_row_starts );
+        horz_cat_count<<<GridDim, BlockDim, 0, ctx.getStream()>>>(
+            in_row_starts, num_rows, out_row_starts );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalCountNNZ Undefined memory location" );
@@ -1111,13 +1112,13 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
         dim3 GridDim;
         setKernelDims( num_rows, horz_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         horz_cat_fill<<<GridDim, BlockDim, 0, ctx.getStream()>>>( in_row_starts,
-                                                         in_cols,
-                                                         in_coeffs,
-                                                         num_rows,
-                                                         out_row_starts,
-                                                         row_nnz_ctrs,
-                                                         out_cols,
-                                                         out_coeffs );
+                                                                  in_cols,
+                                                                  in_coeffs,
+                                                                  num_rows,
+                                                                  out_row_starts,
+                                                                  row_nnz_ctrs,
+                                                                  out_cols,
+                                                                  out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatHorizontalFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatHorizontalFill Undefined memory location" );
@@ -1196,16 +1197,16 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
         dim3 GridDim;
         setKernelDims( num_rows, vert_cat_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         vert_cat_fill<<<GridDim, BlockDim, 0, ctx.getStream()>>>( in_row_starts,
-                                                         in_cols,
-                                                         in_coeffs,
-                                                         num_rows,
-                                                         first_col,
-                                                         last_col,
-                                                         keep_inside,
-                                                         row_offset,
-                                                         out_row_starts,
-                                                         out_cols,
-                                                         out_coeffs );
+                                                                  in_cols,
+                                                                  in_coeffs,
+                                                                  num_rows,
+                                                                  first_col,
+                                                                  last_col,
+                                                                  keep_inside,
+                                                                  row_offset,
+                                                                  out_row_starts,
+                                                                  out_cols,
+                                                                  out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::ConcatVerticalFill" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::ConcatVerticalFill Undefined memory location" );
@@ -1278,14 +1279,14 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag(
         dim3 GridDim;
         setKernelDims( num_rows, mask_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
         mask_diag_fill<<<GridDim, BlockDim, 0, ctx.getStream()>>>( in_row_starts,
-                                                          in_cols_loc,
-                                                          in_coeffs,
-                                                          mask,
-                                                          keep_first,
-                                                          num_rows,
-                                                          out_row_starts,
-                                                          out_cols_loc,
-                                                          out_coeffs );
+                                                                   in_cols_loc,
+                                                                   in_coeffs,
+                                                                   mask,
+                                                                   keep_first,
+                                                                   num_rows,
+                                                                   out_row_starts,
+                                                                   out_cols_loc,
+                                                                   out_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::MaskFillDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::MaskFillDiag Undefined memory location" );
@@ -1335,7 +1336,8 @@ typename Config::lidx_t CSRMatrixDataHelpers<Config>::RemoveRangeCountDel(
                 return cnt;
             } );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeCountDel" );
-        return thrust::reduce( thrust::device.on( ctx.getStream() ), del_per_row, del_per_row + num_rows );
+        return thrust::reduce(
+            thrust::device.on( ctx.getStream() ), del_per_row, del_per_row + num_rows );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeCountDel Undefined memory location" );
 #endif
@@ -1410,14 +1412,14 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
         dim3 GridDim;
         setKernelDims( num_rows, remrange_diag_fill<lidx_t, scalar_t>, BlockDim, GridDim );
         remrange_diag_fill<<<GridDim, BlockDim, 0, ctx.getStream()>>>( old_row_starts,
-                                                              old_cols_loc,
-                                                              old_coeffs,
-                                                              num_rows,
-                                                              bnd_lo,
-                                                              bnd_up,
-                                                              new_row_starts,
-                                                              new_cols_loc,
-                                                              new_coeffs );
+                                                                       old_cols_loc,
+                                                                       old_coeffs,
+                                                                       num_rows,
+                                                                       bnd_lo,
+                                                                       bnd_up,
+                                                                       new_row_starts,
+                                                                       new_cols_loc,
+                                                                       new_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeFillDiag" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeFillDiag Undefined memory location" );
@@ -1457,15 +1459,15 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
         dim3 GridDim;
         setKernelDims( num_rows, remrange_offd_fill<lidx_t, gidx_t, scalar_t>, BlockDim, GridDim );
         remrange_offd_fill<<<GridDim, BlockDim, 0, ctx.getStream()>>>( old_row_starts,
-                                                              old_cols_loc,
-                                                              old_cols_unq,
-                                                              old_coeffs,
-                                                              num_rows,
-                                                              bnd_lo,
-                                                              bnd_up,
-                                                              new_row_starts,
-                                                              new_cols,
-                                                              new_coeffs );
+                                                                       old_cols_loc,
+                                                                       old_cols_unq,
+                                                                       old_coeffs,
+                                                                       num_rows,
+                                                                       bnd_lo,
+                                                                       bnd_up,
+                                                                       new_row_starts,
+                                                                       new_cols,
+                                                                       new_coeffs );
         getLastDeviceError( "CSRMatrixDataHelpers::RemoveRangeFillOffd" );
 #else
         AMP_ERROR( "CSRMatrixDataHelpers::RemoveRangeFillOffd Undefined memory location" );

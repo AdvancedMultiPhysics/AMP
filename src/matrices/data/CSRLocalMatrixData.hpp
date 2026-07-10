@@ -94,7 +94,9 @@ CSRLocalMatrixData<Config>::CSRLocalMatrixData( std::shared_ptr<MatrixParameters
                                             1,
                                             d_acceleration_context );
         // need nnz immediately so must synchronize
-        d_acceleration_context.synchronizeStream();
+        if constexpr ( Config::device_accessible ) {
+            d_acceleration_context.synchronizeStream();
+        }
         d_nnz      = nnz;
         d_is_empty = ( d_nnz == 0 );
 
@@ -466,8 +468,8 @@ void CSRLocalMatrixData<Config>::globalToLocalColumns()
 // a no-op deleter and is unaffected; ConcatVertical (redistribution, transpose)
 // uses a real hipFree deleter and requires this sync.
 #warning imay: Is this still needed with streams and stream-aware allocators?
-    d_acceleration_context.synchronizeStream();
-    // free global cols as they should not be used from here on out
+    // d_acceleration_context.synchronizeStream();
+    //  free global cols as they should not be used from here on out
     d_cols.reset();
 }
 
@@ -685,7 +687,9 @@ std::shared_ptr<CSRLocalMatrixData<ConfigOut>> CSRLocalMatrixData<Config>::migra
                                                   outData->d_acceleration_context );
         }
     }
-    d_acceleration_context.synchronizeStream();
+    if constexpr ( ConfigOut::device_accessible ) {
+        outData->d_acceleration_context.synchronizeStream();
+    }
 
     return outData;
 }
@@ -715,7 +719,9 @@ void CSRLocalMatrixData<Config>::copyFrom( std::shared_ptr<const CSRLocalMatrixD
                                           ConfigIn::mem_loc,
                                           d_nnz,
                                           d_acceleration_context );
-    d_acceleration_context.synchronizeStream();
+    if constexpr ( Config::device_accessible ) {
+        d_acceleration_context.synchronizeStream();
+    }
 }
 
 template<typename Config>
@@ -1431,7 +1437,9 @@ void CSRLocalMatrixData<Config>::writeRestart( int64_t fid ) const
     }
 
     // need fields host-side before writing them out
-    d_acceleration_context.synchronizeStream();
+    if constexpr ( Config::device_accessible ) {
+        d_acceleration_context.synchronizeStream();
+    }
 
     if ( d_num_rows > 0 ) {
         AMP_INSIST( row_starts.data(), "CSRLocalMatrixData::writeRestart: bad row starts" );

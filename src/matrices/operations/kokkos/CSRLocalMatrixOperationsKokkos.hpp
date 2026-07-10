@@ -430,8 +430,15 @@ void CSRLocalMatrixOperationsKokkos<Config>::mult( const typename Config::scalar
         memoryLocationsDeviceAccessible( A->d_memory_location, in_loc, out_loc );
 
     if ( !device_acc ) {
-        impl::mult(
-            d_exec_host, in_view, alpha, nRows, rowstarts, cols_loc, coeffs, beta, out_view );
+        impl::mult( A->d_acceleration_context.getKokkosExecHost(),
+                    in_view,
+                    alpha,
+                    nRows,
+                    rowstarts,
+                    cols_loc,
+                    coeffs,
+                    beta,
+                    out_view );
     } else {
         impl::mult( A->d_acceleration_context.getKokkosExecDefault(),
                     in_view,
@@ -471,7 +478,7 @@ void multTranspose( const ExecSpace &exec_space,
         MultTranspose<ExecSpace, lidx_t, RSView, JAView, AAView, INView, OUTView>
             ftor( nRows, team_rows, rowstarts, cols_loc, coeffs, in, out );
 
-    if constexpr ( std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace> && false ) {
+    if constexpr ( std::is_same_v<ExecSpace, Kokkos::DefaultExecutionSpace> ) {
         Kokkos::TeamPolicy<ExecSpace, Kokkos::Schedule<Kokkos::Dynamic>> team_policy(
             exec_space, num_teams, Kokkos::AUTO, vector_length );
         Kokkos::parallel_for(
@@ -508,7 +515,13 @@ void CSRLocalMatrixOperationsKokkos<Config>::multTranspose(
         memoryLocationsDeviceAccessible( A->d_memory_location, in_loc, out_loc );
 
     if ( !device_acc ) {
-        impl::multTranspose( d_exec_host, in_view, nRows, rowstarts, cols_loc, coeffs, out_view );
+        impl::multTranspose( A->d_acceleration_context.getKokkosExecHost(),
+                             in_view,
+                             nRows,
+                             rowstarts,
+                             cols_loc,
+                             coeffs,
+                             out_view );
     } else {
         impl::multTranspose( A->d_acceleration_context.getKokkosExecDefault(),
                              in_view,
@@ -532,7 +545,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::scale( typename Config::scalar_t al
     if constexpr ( !Config::device_accessible ) {
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::scale",
-            Kokkos::RangePolicy( d_exec_host, 0, tnnz ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, tnnz ),
             KOKKOS_LAMBDA( lidx_t n ) { coeffs( n ) *= alpha; } );
     } else {
         Kokkos::parallel_for(
@@ -563,7 +576,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::scale( typename Config::scalar_t al
     if ( !device_acc ) {
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::scale",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 Scale<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view, alpha ) );
@@ -598,7 +611,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::scaleInv( typename Config::scalar_t
     if ( !device_acc ) {
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::scaleInv",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 ScaleInv<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view, alpha ) );
@@ -640,7 +653,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::axpy( typename Config::scalar_t alp
     if constexpr ( !Config::device_accessible ) {
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::axpy",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( Y->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             KOKKOS_LAMBDA( lidx_t row ) {
                 for ( lidx_t iy = rsY[row]; iy < rsY[row + 1]; ++iy ) {
                     const auto yc = colslocY[iy];
@@ -677,7 +690,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::setScalar( typename Config::scalar_
     const auto vTpl = wrapCSRDataKokkos( A );
     auto coeffs     = std::get<2>( vTpl );
     if constexpr ( !Config::device_accessible ) {
-        Kokkos::deep_copy( d_exec_host, coeffs, alpha );
+        Kokkos::deep_copy( A->d_acceleration_context.getKokkosExecHost(), coeffs, alpha );
     } else {
         Kokkos::deep_copy( A->d_acceleration_context.getKokkosExecDefault(), coeffs, alpha );
     }
@@ -715,7 +728,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::setDiagonal( const typename Config:
     if ( !device_acc ) {
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::setDiagonal",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 SetDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view ) );
@@ -745,7 +758,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::setIdentity( std::shared_ptr<localm
     if constexpr ( !Config::device_accessible ) {
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::setIdentity",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             KOKKOS_LAMBDA( lidx_t row ) { coeffs( rowstarts( row ) ) = 1.0; } );
     } else {
         Kokkos::parallel_for(
@@ -782,7 +795,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::extractDiagonal(
     if ( !device_acc ) {
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::extractDiagonal",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 ExtractDiag<Config, decltype( rowstarts ), decltype( coeffs ), decltype( D_view )>(
                     rowstarts, coeffs, D_view ) );
@@ -816,11 +829,11 @@ void CSRLocalMatrixOperationsKokkos<Config>::getRowSums( std::shared_ptr<localma
 
     if ( !device_acc ) {
         if ( zero_first ) {
-            Kokkos::deep_copy( d_exec_host, buf_view, 0.0 );
+            Kokkos::deep_copy( A->d_acceleration_context.getKokkosExecHost(), buf_view, 0.0 );
         }
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::getRowSums",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 RowSums<Config, decltype( rowstarts ), decltype( coeffs ), decltype( buf_view )>(
                     rowstarts, coeffs, buf_view ) );
@@ -859,18 +872,18 @@ void CSRLocalMatrixOperationsKokkos<Config>::getRowSumsAbsolute(
 
     if ( !device_acc ) {
         if ( zero_first ) {
-            Kokkos::deep_copy( d_exec_host, buf_view, 0.0 );
+            Kokkos::deep_copy( A->d_acceleration_context.getKokkosExecHost(), buf_view, 0.0 );
         }
         Kokkos::parallel_for(
             "CSRMatrixOperationsKokkos::getRowSumsAbsolute",
-            Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+            Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
             CSRMatOpsKokkosFunctor::
                 AbsRowSums<Config, decltype( rowstarts ), decltype( coeffs ), decltype( buf_view )>(
                     rowstarts, coeffs, buf_view ) );
         if ( remove_zeros ) {
             Kokkos::parallel_for(
                 "CSRMatrixOperationsKokkos::getRowSumsAbsolute(remove zeros)",
-                Kokkos::RangePolicy( d_exec_host, 0, nRows ),
+                Kokkos::RangePolicy( A->d_acceleration_context.getKokkosExecHost(), 0, nRows ),
                 CSRMatOpsKokkosFunctor::RemoveZeros<Config, decltype( buf_view )>( buf_view ) );
         }
     } else {

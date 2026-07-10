@@ -250,11 +250,7 @@ void VectorOperationsKokkos<T>::multiply( const VectorData &x, const VectorData 
     if ( !device_acc ) {
         multiply_kernel( z.d_acceleration_context.getKokkosExecHost(), xv, yv, zv );
     } else {
-    #ifndef AMP_USE_DEVICE
-        AMP_ERROR( "VectorOperationsKokkos: Unrecognized memory space" );
-    #else
         multiply_kernel( z.d_acceleration_context.getKokkosExecDefault(), xv, yv, zv );
-    #endif
     }
     z.makeConsistent( ScatterType::CONSISTENT_SET );
 }

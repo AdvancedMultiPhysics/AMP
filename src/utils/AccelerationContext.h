@@ -28,7 +28,7 @@ public:
 
     void setComputeStream( const ComputeStream stream, const bool manage_stream_deletion );
 
-    const ComputeStream getStream() const;
+    ComputeStream getStream() const;
 
     void synchronizeStream() const;
 

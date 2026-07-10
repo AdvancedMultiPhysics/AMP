@@ -70,7 +70,7 @@ void AccelerationContext::setComputeStream( const ComputeStream stream,
 #endif
 }
 
-const ComputeStream AccelerationContext::getStream() const { return d_stream; }
+ComputeStream AccelerationContext::getStream() const { return d_stream; }
 
 void AccelerationContext::synchronizeStream() const
 {

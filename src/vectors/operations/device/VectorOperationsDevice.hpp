@@ -276,7 +276,8 @@ void VectorOperationsDevice<TYPE>::linearSum( const Scalar &alpha_in,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::linearSum( alpha, N, xdata, beta, ydata, zdata, z.d_acceleration_context );
+        DeviceOperationsHelpers<TYPE>::linearSum(
+            alpha, N, xdata, beta, ydata, zdata, z.d_acceleration_context );
         z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -335,7 +336,8 @@ void VectorOperationsDevice<TYPE>::addScalar( const VectorData &x,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::addScalar( N, xdata, alpha, ydata, y.d_acceleration_context );
+        DeviceOperationsHelpers<TYPE>::addScalar(
+            N, xdata, alpha, ydata, y.d_acceleration_context );
         y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
@@ -493,7 +495,8 @@ Scalar VectorOperationsDevice<TYPE>::localMinQuotient( const VectorData &x,
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMinQuotient( N, xdata, ydata, y.d_acceleration_context );
+        return DeviceOperationsHelpers<TYPE>::localMinQuotient(
+            N, xdata, ydata, y.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMinQuotient( x, y );
@@ -509,7 +512,8 @@ Scalar VectorOperationsDevice<TYPE>::localWrmsNorm( const VectorData &x, const V
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localWrmsNorm( N, xdata, ydata, y.d_acceleration_context );
+        return DeviceOperationsHelpers<TYPE>::localWrmsNorm(
+            N, xdata, ydata, y.d_acceleration_context );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localWrmsNorm( x, y );

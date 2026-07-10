@@ -342,14 +342,6 @@ double AMPManager::setupAccelerationContext()
         deviceMallocAsync( &tmp, 10, stream );
         deviceFreeAsync( tmp, stream );
         deviceStreamSynchronize( stream );
-
-        //// debug
-        {
-            int dev_id, stream_dev_id;
-            deviceId( &dev_id );
-            hipStreamGetDevice( stream, &stream_dev_id );
-            AMP_ASSERT( dev_id == stream_dev_id );
-        }
     }
 #else
     // host only build, simply pass nullptr for stream and trigger

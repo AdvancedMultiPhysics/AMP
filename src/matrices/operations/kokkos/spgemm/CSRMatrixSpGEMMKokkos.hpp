@@ -102,14 +102,14 @@ void CSRMatrixSpGEMMKokkos<Config, ExecSpace>::multiplyLocal(
 
         const auto first_col = C_data->beginCol();
 
-        if ( !alloc_info<Config::allocator>::device_accessible ) {
+        if constexpr ( !Config::device_accessible ) {
             std::transform(
                 C_cols_loc, C_cols_loc + C_nnz, C_cols, [first_col]( const lidx_t lc ) -> gidx_t {
                     return static_cast<gidx_t>( lc ) + first_col;
                 } );
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::transform( thrust::device.on( d_stream ),
+            thrust::transform( thrust::device.on( C_data->d_acceleration_context.getStream() ),
                                C_cols_loc,
                                C_cols_loc + C_nnz,
                                C_cols,
@@ -130,7 +130,7 @@ void CSRMatrixSpGEMMKokkos<Config, ExecSpace>::multiplyLocal(
         } else {
 #ifdef AMP_USE_DEVICE
             thrust::transform(
-                thrust::device.on( d_stream ),
+                thrust::device.on( C_data->d_acceleration_context.getStream() ),
                 C_cols_loc,
                 C_cols_loc + C_nnz,
                 C_cols,

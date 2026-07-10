@@ -269,8 +269,6 @@ CSRMatrixData<Config>::redistribute( const Utilities::GroupedRedistributionPlan 
         gathered_vals = comm_block->makeScalarArray( total_nnz );
     }
 
-    comm_block->d_acceleration_context.synchronizeStream();
-
     group_comm.gather( comm_block->d_row_starts.get(),
                        static_cast<int>( comm_block->d_num_rows + 1 ),
                        gathered_rs.get(),
@@ -394,11 +392,14 @@ std::shared_ptr<CSRMatrixData<ConfigOut>> CSRMatrixData<Config>::migrate() const
     outData->d_diag_matrix = d_diag_matrix->template migrate<ConfigOut>();
     outData->d_offd_matrix = d_offd_matrix->template migrate<ConfigOut>();
 
-    outData->d_acceleration_context.synchronizeStream();
+    if constexpr ( ConfigOut::device_accessible ) {
+        outData->d_acceleration_context.synchronizeStream();
+    }
 
     outData->d_diag_matrix->d_hash = getComm().rand();
-    if ( d_offd_matrix )
+    if ( d_offd_matrix ) {
         outData->d_offd_matrix->d_hash = getComm().rand();
+    }
 
     return outData;
 }
@@ -411,7 +412,9 @@ void CSRMatrixData<Config>::copyFrom( std::shared_ptr<const CSRMatrixData<Config
 
     d_diag_matrix->template copyFrom<ConfigIn>( in->d_diag_matrix );
     d_offd_matrix->template copyFrom<ConfigIn>( in->d_offd_matrix );
-    d_acceleration_context.synchronizeStream();
+    if constexpr ( Config::device_accessible ) {
+        d_acceleration_context.synchronizeStream();
+    }
 }
 
 template<typename Config>
@@ -598,7 +601,9 @@ void CSRMatrixData<Config>::assemble( bool force_dm_reset )
     globalToLocalColumns();
     resetDOFManagers( force_dm_reset );
 
-    d_acceleration_context.synchronizeStream();
+    if constexpr ( Config::device_accessible ) {
+        d_acceleration_context.synchronizeStream();
+    }
 }
 
 template<typename Config>

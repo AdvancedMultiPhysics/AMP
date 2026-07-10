@@ -158,7 +158,9 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
                                             localmatrixdata_t::d_memory_location,
                                             rcols.size(),
                                             A.d_acceleration_context );
-        A.d_acceleration_context.synchronizeStream();
+        if constexpr ( Config::device_accessible ) {
+            A.d_acceleration_context.synchronizeStream();
+        }
 
         // copy rcols and vvals into std::vectors and write out
         outData->addValuesByGlobalID(
@@ -264,7 +266,7 @@ void CSRMatrixOperationsKokkos<Config>::matMatMult( std::shared_ptr<MatrixData> 
 
     // construct SpGEMM helper and call multiply
     #ifdef AMP_USE_KOKKOSKERNELS
-    if constexpr ( alloc_info<Config::allocator>::device_accessible ) {
+    if constexpr ( Config::device_accessible ) {
         CSRMatrixSpGEMMKokkos<Config, Kokkos::DefaultExecutionSpace> spgemm(
             csrDataA, csrDataB, csrDataC );
         spgemm.multiply();

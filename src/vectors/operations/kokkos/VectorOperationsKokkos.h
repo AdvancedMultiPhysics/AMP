@@ -78,7 +78,6 @@ public:
                       const Scalar &tol = 1e-6 ) const override;
 
 protected:
-    Kokkos::DefaultHostExecutionSpace d_exec_host;
     std::shared_ptr<VectorOperationsDefault<TYPE>> d_default_ops;
 };
 

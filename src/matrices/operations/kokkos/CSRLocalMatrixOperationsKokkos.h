@@ -222,9 +222,6 @@ public:
         return Kokkos::View<T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace, ViewArgs...>( ptr,
                                                                                             num );
     }
-
-protected:
-    Kokkos::DefaultHostExecutionSpace d_exec_host;
 };
 
 } // namespace AMP::LinearAlgebra
