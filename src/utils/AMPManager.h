@@ -172,7 +172,7 @@ public:
     static std::tuple<int, const char *const *> get_args();
 
     //! Function to return the AMPManagerProperties that was used to initialize AMP
-    static AMPManagerProperties getAMPManagerProperties();
+    static AMPManagerProperties &getAMPManagerProperties();
 
     //! Static function to terminate AMP
     static void terminate_AMP( std::string message );

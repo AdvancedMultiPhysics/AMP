@@ -33,6 +33,13 @@ AccelerationContext::AccelerationContext( const ComputeStream stream,
 
 AccelerationContext::~AccelerationContext()
 {
+    // Kokkos execution spaces with streams need to deallocate
+    // internal memory tied to that stream *before* that stream
+    // is destroyed. Trigger their destructors by writing in nullopts
+#ifdef AMP_USE_KOKKOS
+    d_kokkos_exec_default = std::nullopt;
+    d_kokkos_exec_host    = std::nullopt;
+#endif
 #ifdef AMP_USE_DEVICE
     if ( d_manage_stream_deletion ) {
         deviceStreamDestroy( d_stream );
@@ -53,8 +60,13 @@ void AccelerationContext::setComputeStream( const ComputeStream stream,
     d_stream                 = stream;
     d_manage_stream_deletion = manage_stream_deletion;
     // update Kokkos execution space to match
-#if defined( AMP_USE_KOKKOS ) && defined( AMP_USE_DEVICE )
+#ifdef AMP_USE_KOKKOS
+    #ifdef AMP_USE_DEVICE
     d_kokkos_exec_default = std::make_optional<Kokkos::DefaultExecutionSpace>( d_stream );
+    #else
+    d_kokkos_exec_default = std::make_optional<Kokkos::DefaultExecutionSpace>();
+    #endif
+    d_kokkos_exec_host = std::make_optional<Kokkos::DefaultHostExecutionSpace>();
 #endif
 }
 

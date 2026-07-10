@@ -23,7 +23,6 @@ public:
 
     T *allocate( size_t n )
     {
-        AMP_WARNING( "non-stream aware: host alloc" );
         T *ptr;
         auto err = hipHostMalloc( (void **) &ptr, n * sizeof( T ) );
         checkHipErrors( err );
@@ -36,7 +35,6 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        AMP_WARNING( "non-stream aware: host dealloc" );
         auto err = hipFreeHost( (void *) p );
         checkHipErrors( err );
     }

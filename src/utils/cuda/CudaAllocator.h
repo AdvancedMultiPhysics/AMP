@@ -22,7 +22,6 @@ public:
 
     T *allocate( size_t n )
     {
-        AMP_WARNING( "non-stream aware: dev alloc" );
         T *ptr;
         auto err = cudaMallocHost( &ptr, n * sizeof( T ) );
         checkCudaErrors( err );
@@ -35,7 +34,6 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        AMP_WARNING( "non-stream aware: dev dealloc" );
         auto err = cudaFreeHost( p );
         checkCudaErrors( err );
     }
@@ -60,7 +58,6 @@ public:
 
     T *allocate( size_t n )
     {
-        AMP_WARNING( "non-stream aware: dev alloc" );
         T *ptr;
         auto err = cudaMalloc( &ptr, n * sizeof( T ) );
         checkCudaErrors( err );
@@ -82,7 +79,6 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        AMP_WARNING( "non-stream aware: dev dealloc" );
         auto err = cudaFree( p );
         checkCudaErrors( err );
     }
@@ -112,7 +108,6 @@ public:
 
     T *allocate( size_t n )
     {
-        AMP_WARNING( "non-stream aware: managed alloc" );
         T *ptr;
         auto err = cudaMallocManaged( &ptr, n * sizeof( T ), cudaMemAttachGlobal );
         checkCudaErrors( err );
@@ -139,7 +134,6 @@ public:
 
     void deallocate( T *p, size_t )
     {
-        AMP_WARNING( "non-stream aware: managed dealloc" );
         auto err = cudaFree( p );
         checkCudaErrors( err );
     }

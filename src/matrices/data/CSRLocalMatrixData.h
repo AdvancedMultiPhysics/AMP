@@ -228,9 +228,9 @@ public:
         using alloc_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<U>;
         alloc_t alloc;
         return std::shared_ptr<typename alloc_t::value_type[]>(
-            alloc.allocate( N, d_acceleration_context ),
-            [N, &alloc, d_acceleration_context = d_acceleration_context]( auto p ) -> void {
-                alloc.deallocate( p, N, d_acceleration_context );
+            alloc.allocate( N, d_acceleration_context.getStream() ),
+            [N, &alloc, stream = d_acceleration_context.getStream()]( auto p ) -> void {
+                alloc.deallocate( p, N, stream );
             } );
     }
 

@@ -331,16 +331,26 @@ double AMPManager::setupAccelerationContext()
 {
     auto start = std::chrono::steady_clock::now();
 #ifdef AMP_USE_DEVICE
-    // GPU-enabled build, create a stream for AMP to use by default,
-    // give it to the AMP default context, and let that context own it
-    Utilities::ComputeStream stream;
-    deviceStreamCreate( &stream );
-    d_properties.acceleration_context.setComputeStream( stream, true );
+    if ( d_properties.initialize_device ) {
+        // GPU-enabled build, create a stream for AMP to use by default,
+        // give it to the AMP default context, and let that context own it
+        Utilities::ComputeStream stream;
+        deviceStreamCreate( &stream );
+        d_properties.acceleration_context.setComputeStream( stream, true );
 
-    void *tmp;
-    deviceMallocAsync( &tmp, 10, stream );
-    deviceFreeAsync( tmp, stream );
-    deviceStreamSynchronize( stream );
+        void *tmp;
+        deviceMallocAsync( &tmp, 10, stream );
+        deviceFreeAsync( tmp, stream );
+        deviceStreamSynchronize( stream );
+
+        //// debug
+        {
+            int dev_id, stream_dev_id;
+            deviceId( &dev_id );
+            hipStreamGetDevice( stream, &stream_dev_id );
+            AMP_ASSERT( dev_id == stream_dev_id );
+        }
+    }
 #else
     // host only build, simply pass nullptr for stream and trigger
     // internal construction of Kokkos execution spaces
@@ -405,7 +415,7 @@ std::tuple<int, const char *const *> AMPManager::get_args()
     return std::tuple<int, const char *const *>( d_argc, d_argv );
 }
 
-AMPManagerProperties AMPManager::getAMPManagerProperties()
+AMPManagerProperties &AMPManager::getAMPManagerProperties()
 {
     AMP_INSIST( d_initialized, "AMP has not been initialized" );
     return d_properties;

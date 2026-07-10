@@ -22,6 +22,8 @@ public:
 
     AccelerationContext( const ComputeStream stream, const bool manage_stream_deletion );
 
+    AccelerationContext( const AccelerationContext & ) = default;
+
     ~AccelerationContext();
 
     void setComputeStream( const ComputeStream stream, const bool manage_stream_deletion );
