@@ -41,10 +41,10 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
                 "SimpleAggregator does not support device memory" );
 
     // Get diag block from A and mask it using SoC
-    const auto A_nrows  = static_cast<lidx_t>( A->numLocalRows() );
-    auto A_data         = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    auto A_diag         = A_data->getDiagMatrix();
-    const auto &acc_ctx = A_data->d_acceleration_context;
+    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
+    auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    auto A_diag        = A_data->getDiagMatrix();
+    auto &acc_ctx      = A_data->d_acceleration_context;
 
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {

@@ -871,7 +871,7 @@ public: // Write/read restart data
 
     VectorData( int64_t fid, AMP::IO::RestartManager *manager );
 
-    const AMP::Utilities::AccelerationContext &d_acceleration_context;
+    AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:                   // Internal data
     size_t d_localSize  = 0; //! Number of local values

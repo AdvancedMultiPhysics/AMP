@@ -59,18 +59,24 @@ void AccelerationContext::setComputeStream( const ComputeStream stream,
     // update stream and ownership
     d_stream                 = stream;
     d_manage_stream_deletion = manage_stream_deletion;
-    // update Kokkos execution space to match
-#ifdef AMP_USE_KOKKOS
-    #ifdef AMP_USE_DEVICE
-    d_kokkos_exec_default = std::make_optional<Kokkos::DefaultExecutionSpace>( d_stream );
-    #else
-    d_kokkos_exec_default = std::make_optional<Kokkos::DefaultExecutionSpace>();
-    #endif
-    d_kokkos_exec_host = std::make_optional<Kokkos::DefaultHostExecutionSpace>();
+}
+
+void AccelerationContext::createStream()
+{
+#ifdef AMP_USE_DEVICE
+    if ( !d_stream ) {
+        ComputeStream stream;
+        deviceStreamCreate( &stream );
+        setComputeStream( stream, true );
+    }
 #endif
 }
 
-ComputeStream AccelerationContext::getStream() const { return d_stream; }
+ComputeStream AccelerationContext::getStream()
+{
+    createStream();
+    return d_stream;
+}
 
 void AccelerationContext::synchronizeStream() const
 {
@@ -82,15 +88,26 @@ void AccelerationContext::synchronizeStream() const
 }
 
 #ifdef AMP_USE_KOKKOS
-const Kokkos::DefaultExecutionSpace &AccelerationContext::getKokkosExecDefault() const
+const Kokkos::DefaultExecutionSpace &AccelerationContext::getKokkosExecDefault()
 {
-    AMP_DEBUG_ASSERT( d_kokkos_exec_default );
+    if ( !d_kokkos_exec_default ) {
+        // create execution space lazily and ensure stream exists if needed
+    #ifdef AMP_USE_DEVICE
+        createStream();
+        d_kokkos_exec_default = std::make_optional<Kokkos::DefaultExecutionSpace>( d_stream );
+    #else
+        d_kokkos_exec_default = std::make_optional<Kokkos::DefaultExecutionSpace>();
+    #endif
+    }
     return d_kokkos_exec_default.value();
 }
 
-const Kokkos::DefaultHostExecutionSpace &AccelerationContext::getKokkosExecHost() const
+const Kokkos::DefaultHostExecutionSpace &AccelerationContext::getKokkosExecHost()
 {
-    AMP_DEBUG_ASSERT( d_kokkos_exec_host );
+    if ( !d_kokkos_exec_host ) {
+        // create execution space lazily
+        d_kokkos_exec_host = std::make_optional<Kokkos::DefaultHostExecutionSpace>();
+    }
     return d_kokkos_exec_host.value();
 }
 #endif

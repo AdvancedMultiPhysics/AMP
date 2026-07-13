@@ -85,10 +85,10 @@ public:
 
     T *allocate( size_t n ) { return a.allocate( n ); }
     T *allocate( size_t n, AMP::Utilities::ComputeStream ) { return a.allocate( n ); }
-    T *allocate( size_t n, const AMP::Utilities::AccelerationContext & ) { return a.allocate( n ); }
+    T *allocate( size_t n, AMP::Utilities::AccelerationContext & ) { return a.allocate( n ); }
     void deallocate( T *p, size_t n ) { a.deallocate( p, n ); }
     void deallocate( T *p, size_t n, AMP::Utilities::ComputeStream ) { a.deallocate( p, n ); }
-    void deallocate( T *p, size_t n, const AMP::Utilities::AccelerationContext & )
+    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext & )
     {
         a.deallocate( p, n );
     }

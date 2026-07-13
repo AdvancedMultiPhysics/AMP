@@ -216,7 +216,7 @@ public:
         return d_properties.acceleration_context.getStream();
     }
 
-    static const Utilities::AccelerationContext &getDefaultAccelerationContext()
+    static Utilities::AccelerationContext &getDefaultAccelerationContext()
     {
         return d_properties.acceleration_context;
     }

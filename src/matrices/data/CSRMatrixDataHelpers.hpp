@@ -433,7 +433,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsDiag(
     typename Config::scalar_t *coeffs,
     typename Config::lidx_t num_rows,
     typename Config::gidx_t first_col,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::SortColumnsDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -492,7 +492,7 @@ void CSRMatrixDataHelpers<Config>::SortColumnsOffd(
     typename Config::gidx_t *cols,
     typename Config::scalar_t *coeffs,
     typename Config::lidx_t num_rows,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::SortColumnsOffd" );
     if constexpr ( !Config::device_accessible ) {
@@ -549,7 +549,7 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalDiag(
     typename Config::lidx_t nnz,
     typename Config::gidx_t first_col,
     typename Config::lidx_t *cols_loc,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::GlobalToLocalDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -579,7 +579,7 @@ void CSRMatrixDataHelpers<Config>::GlobalToLocalOffd(
     typename Config::gidx_t *cols_unq,
     typename Config::lidx_t ncols_unq,
     typename Config::lidx_t *cols_loc,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::GlobalToLocalOffd" );
     // copy and modify from Utilities::findfirst to suit task
@@ -641,7 +641,7 @@ void CSRMatrixDataHelpers<Config>::TransposeDiag(
     typename Config::scalar_t *out_coeffs,
     typename Config::lidx_t *counters,
     [[maybe_unused]] typename Config::lidx_t *reduce_space,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::TransposeDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -756,7 +756,7 @@ void CSRMatrixDataHelpers<Config>::TransposeOffd(
     typename Config::scalar_t *out_coeffs,
     typename Config::lidx_t *counters,
     [[maybe_unused]] typename Config::lidx_t *reduce_space,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::TransposeOffd" );
     if constexpr ( !Config::device_accessible ) {
@@ -854,7 +854,7 @@ void CSRMatrixDataHelpers<Config>::RowSubsetCountNNZ(
     const typename Config::lidx_t *diag_row_starts,
     const typename Config::lidx_t *offd_row_starts,
     typename Config::lidx_t *counts,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::RowSubsetCountNNZ" );
     if constexpr ( !Config::device_accessible ) {
@@ -894,7 +894,7 @@ void CSRMatrixDataHelpers<Config>::RowSubsetFill(
     const typename Config::lidx_t *out_row_starts,
     typename Config::gidx_t *out_cols,
     typename Config::scalar_t *out_coeffs,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::RowSubsetFill" );
     if constexpr ( !Config::device_accessible ) {
@@ -953,7 +953,7 @@ void CSRMatrixDataHelpers<Config>::ColSubsetCountNNZ(
     const typename Config::gidx_t *offd_cols_unq,
     const typename Config::lidx_t num_rows,
     typename Config::lidx_t *out_row_starts,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::ColSubsetCountNNZ" );
     if constexpr ( !Config::device_accessible ) {
@@ -1010,7 +1010,7 @@ void CSRMatrixDataHelpers<Config>::ColSubsetFill(
     typename Config::lidx_t *out_row_starts,
     typename Config::gidx_t *out_cols,
     typename Config::scalar_t *out_coeffs,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::ColSubsetFill" );
     if constexpr ( !Config::device_accessible ) {
@@ -1064,7 +1064,7 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalCountNNZ(
     const typename Config::lidx_t *in_row_starts,
     const typename Config::lidx_t num_rows,
     typename Config::lidx_t *out_row_starts,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1094,7 +1094,7 @@ void CSRMatrixDataHelpers<Config>::ConcatHorizontalFill(
     typename Config::lidx_t *row_nnz_ctrs,
     typename Config::gidx_t *out_cols,
     typename Config::scalar_t *out_coeffs,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1135,7 +1135,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalCountNNZ(
     const typename Config::gidx_t last_col,
     const bool keep_inside,
     typename Config::lidx_t *counts,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1175,7 +1175,7 @@ void CSRMatrixDataHelpers<Config>::ConcatVerticalFill(
     const typename Config::lidx_t *out_row_starts,
     typename Config::gidx_t *out_cols,
     typename Config::scalar_t *out_coeffs,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1221,7 +1221,7 @@ void CSRMatrixDataHelpers<Config>::MaskCountNNZ(
     const bool keep_first,
     const typename Config::lidx_t num_rows,
     typename Config::lidx_t *out_row_starts,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     if constexpr ( !Config::device_accessible ) {
         const lidx_t kf = keep_first ? 1 : 0; // if keeping then start count at one and skip entry
@@ -1258,7 +1258,7 @@ void CSRMatrixDataHelpers<Config>::MaskFillDiag(
     const typename Config::lidx_t *out_row_starts,
     typename Config::lidx_t *out_cols_loc,
     typename Config::scalar_t *out_coeffs,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     if constexpr ( !Config::device_accessible ) {
         for ( lidx_t row = 0; row < num_rows; ++row ) {
@@ -1302,7 +1302,7 @@ typename Config::lidx_t CSRMatrixDataHelpers<Config>::RemoveRangeCountDel(
     const typename Config::scalar_t bnd_lo,
     const typename Config::scalar_t bnd_up,
     typename Config::lidx_t *del_per_row,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeCountDel" );
     if constexpr ( !Config::device_accessible ) {
@@ -1350,7 +1350,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeUpdateRowStart(
     const typename Config::lidx_t *del_per_row,
     const typename Config::lidx_t num_rows,
     typename Config::lidx_t *out_row_starts,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeUpdateRowStart" );
     if constexpr ( !Config::device_accessible ) {
@@ -1392,7 +1392,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillDiag(
     [[maybe_unused]] const typename Config::lidx_t *new_row_starts,
     typename Config::lidx_t *new_cols_loc,
     typename Config::scalar_t *new_coeffs,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeFillDiag" );
     if constexpr ( !Config::device_accessible ) {
@@ -1439,7 +1439,7 @@ void CSRMatrixDataHelpers<Config>::RemoveRangeFillOffd(
     [[maybe_unused]] const typename Config::lidx_t *new_row_starts,
     typename Config::gidx_t *new_cols,
     typename Config::scalar_t *new_coeffs,
-    [[maybe_unused]] const AMP::Utilities::AccelerationContext &ctx )
+    [[maybe_unused]] AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "CSRMatrixDataHelpers::RemoveRangeFillOffd" );
     if constexpr ( !Config::device_accessible ) {

@@ -19,7 +19,7 @@ void fill_n( TYPE *x,
              const size_t N,
              const TYPE alpha,
              const MemoryType mem_loc,
-             [[maybe_unused]] const AccelerationContext &ctx )
+             [[maybe_unused]] AccelerationContext &ctx )
 {
     if ( N > 0 ) {
         if ( mem_loc <= MemoryType::host ) {
@@ -35,7 +35,7 @@ void fill_n( TYPE *x,
 }
 
 template<typename TYPE>
-void zero_n( TYPE *x, const size_t N, const MemoryType mem_loc, const AccelerationContext &ctx )
+void zero_n( TYPE *x, const size_t N, const MemoryType mem_loc, AccelerationContext &ctx )
 {
     fill_n<TYPE>( x, N, 0, mem_loc, ctx );
 }
@@ -45,7 +45,7 @@ void copy_n( TYPE *dst,
              const TYPE *src,
              const size_t N,
              const MemoryType mem_loc,
-             [[maybe_unused]] const AccelerationContext &ctx )
+             [[maybe_unused]] AccelerationContext &ctx )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
     if ( mem_loc <= MemoryType::host ) {
@@ -66,7 +66,7 @@ void copy_n( TYPE *dst,
              const TYPE *src,
              const MemoryType src_loc,
              const size_t N,
-             [[maybe_unused]] const AccelerationContext &ctx )
+             [[maybe_unused]] AccelerationContext &ctx )
 {
     static_assert( std::is_trivially_copyable_v<TYPE> );
 
@@ -110,7 +110,7 @@ void copyCast( TDst *dst,
                const TSrc *src,
                const MemoryType src_loc,
                size_t N,
-               [[maybe_unused]] const AccelerationContext &ctx )
+               [[maybe_unused]] AccelerationContext &ctx )
 {
     // either both integer types or both floating, but not mixed between the two
     static_assert( (std::is_integral_v<TSrc> && std::is_integral_v<TDst>) ||
@@ -160,7 +160,7 @@ void inclusive_scan( const TYPE *x,
                      const size_t N,
                      TYPE *y,
                      const MemoryType mem_loc,
-                     [[maybe_unused]] const AccelerationContext &ctx )
+                     [[maybe_unused]] AccelerationContext &ctx )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::inclusive_scan( x, x + N, y );
@@ -179,7 +179,7 @@ void exclusive_scan( const TYPE *x,
                      TYPE *y,
                      TYPE alpha,
                      const MemoryType mem_loc,
-                     [[maybe_unused]] const AccelerationContext &ctx )
+                     [[maybe_unused]] AccelerationContext &ctx )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::exclusive_scan( x, x + N, y, alpha );
@@ -196,7 +196,7 @@ template<typename TYPE>
 void sort( TYPE *x,
            const size_t N,
            const MemoryType mem_loc,
-           [[maybe_unused]] const AccelerationContext &ctx )
+           [[maybe_unused]] AccelerationContext &ctx )
 {
     if ( mem_loc <= MemoryType::host ) {
         std::sort( x, x + N );
@@ -213,7 +213,7 @@ template<typename TYPE>
 size_t unique( TYPE *x,
                const size_t N,
                const MemoryType mem_loc,
-               [[maybe_unused]] const AccelerationContext &ctx )
+               [[maybe_unused]] AccelerationContext &ctx )
 {
     TYPE *last = nullptr;
     if ( mem_loc <= MemoryType::host ) {
@@ -234,7 +234,7 @@ template<typename TYPE>
 TYPE min_element( const TYPE *x,
                   const size_t N,
                   const MemoryType mem_loc,
-                  [[maybe_unused]] const AccelerationContext &ctx )
+                  [[maybe_unused]] AccelerationContext &ctx )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::min_element( x, x + N );
@@ -254,7 +254,7 @@ template<typename TYPE>
 TYPE max_element( const TYPE *x,
                   const size_t N,
                   const MemoryType mem_loc,
-                  [[maybe_unused]] const AccelerationContext &ctx )
+                  [[maybe_unused]] AccelerationContext &ctx )
 {
     if ( mem_loc <= MemoryType::host ) {
         return *std::max_element( x, x + N );
@@ -275,7 +275,7 @@ TYPE accumulate( const TYPE *x,
                  const size_t N,
                  TYPE alpha,
                  const MemoryType mem_loc,
-                 [[maybe_unused]] const AccelerationContext &ctx )
+                 [[maybe_unused]] AccelerationContext &ctx )
 {
     if ( mem_loc <= MemoryType::host ) {
         return std::accumulate( x, x + N, alpha );

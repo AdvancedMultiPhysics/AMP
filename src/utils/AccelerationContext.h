@@ -28,16 +28,18 @@ public:
 
     void setComputeStream( const ComputeStream stream, const bool manage_stream_deletion );
 
-    ComputeStream getStream() const;
+    ComputeStream getStream();
 
     void synchronizeStream() const;
 
 #ifdef AMP_USE_KOKKOS
-    const Kokkos::DefaultExecutionSpace &getKokkosExecDefault() const;
-    const Kokkos::DefaultHostExecutionSpace &getKokkosExecHost() const;
+    const Kokkos::DefaultExecutionSpace &getKokkosExecDefault();
+    const Kokkos::DefaultHostExecutionSpace &getKokkosExecHost();
 #endif
 
 private:
+    void createStream();
+
     /*!
      * GPU compute stream to enqueue work into.
      * This is defined but useless in host-only builds.

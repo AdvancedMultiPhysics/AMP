@@ -34,7 +34,7 @@ void DeviceMatrixOperations<G, L, S>::mult( const L *row_starts,
                                             const size_t N,
                                             const S *in,
                                             S *out,
-                                            const AMP::Utilities::AccelerationContext &ctx )
+                                            AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -57,7 +57,7 @@ template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::scale( const size_t N,
                                              S *x,
                                              const S alpha,
-                                             const AMP::Utilities::AccelerationContext &ctx )
+                                             AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -77,7 +77,7 @@ __global__ void axpy_kernel( const size_t N, const S alpha, S *__restrict__ x, S
 
 template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::axpy(
-    const size_t N, const S alpha, S *x, S *y, const AMP::Utilities::AccelerationContext &ctx )
+    const size_t N, const S alpha, S *x, S *y, AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -90,7 +90,7 @@ template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::copy( const size_t N,
                                             const S *__restrict__ x,
                                             S *__restrict__ y,
-                                            const AMP::Utilities::AccelerationContext &ctx )
+                                            AMP::Utilities::AccelerationContext &ctx )
 {
     deviceMemcpyAsync( y, x, N * sizeof( S ), deviceMemcpyDeviceToDevice, ctx.getStream() );
 }
@@ -109,12 +109,11 @@ __global__ static void extractDiagonal_kernel( const L *row_starts,
 }
 
 template<typename G, typename L, typename S>
-void DeviceMatrixOperations<G, L, S>::extractDiagonal(
-    const L *row_starts,
-    const S *coeffs,
-    const size_t N,
-    S *diag,
-    const AMP::Utilities::AccelerationContext &ctx )
+void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
+                                                       const S *coeffs,
+                                                       const size_t N,
+                                                       S *diag,
+                                                       AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -141,7 +140,7 @@ void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
                                                    S *coeffs,
                                                    const size_t N,
                                                    const S *diag,
-                                                   const AMP::Utilities::AccelerationContext &ctx )
+                                                   AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -164,7 +163,7 @@ template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::setIdentity( const L *row_starts,
                                                    S *coeffs,
                                                    const size_t N,
-                                                   const AMP::Utilities::AccelerationContext &ctx )
+                                                   AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -197,7 +196,7 @@ void DeviceMatrixOperations<G, L, S>::LinfNorm( const size_t N,
                                                 const S *x,
                                                 const L *row_starts,
                                                 S *row_sums,
-                                                const AMP::Utilities::AccelerationContext &ctx )
+                                                AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;

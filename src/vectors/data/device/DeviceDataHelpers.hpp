@@ -35,11 +35,10 @@ set_vals_kernel( const size_t N, const size_t *indices, const STYPE *src, DTYPE 
 }
 
 template<typename STYPE, typename DTYPE>
-bool DeviceDataHelpers<STYPE, DTYPE>::containsIndex(
-    const size_t N,
-    const size_t *indices,
-    const size_t i,
-    const AMP::Utilities::AccelerationContext &ctx )
+bool DeviceDataHelpers<STYPE, DTYPE>::containsIndex( const size_t N,
+                                                     const size_t *indices,
+                                                     const size_t i,
+                                                     AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( indices );
 
@@ -48,12 +47,11 @@ bool DeviceDataHelpers<STYPE, DTYPE>::containsIndex(
 }
 
 template<typename STYPE, typename DTYPE>
-bool DeviceDataHelpers<STYPE, DTYPE>::allGhostIndices(
-    const size_t N,
-    const size_t *indices,
-    const size_t start,
-    const size_t end,
-    const AMP::Utilities::AccelerationContext &ctx )
+bool DeviceDataHelpers<STYPE, DTYPE>::allGhostIndices( const size_t N,
+                                                       const size_t *indices,
+                                                       const size_t start,
+                                                       const size_t end,
+                                                       AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( indices );
 
@@ -67,12 +65,11 @@ bool DeviceDataHelpers<STYPE, DTYPE>::allGhostIndices(
 }
 
 template<typename STYPE, typename DTYPE>
-void DeviceDataHelpers<STYPE, DTYPE>::setValuesByIndex(
-    const size_t N,
-    const size_t *indices,
-    const STYPE *src,
-    DTYPE *dst,
-    const AMP::Utilities::AccelerationContext &ctx )
+void DeviceDataHelpers<STYPE, DTYPE>::setValuesByIndex( const size_t N,
+                                                        const size_t *indices,
+                                                        const STYPE *src,
+                                                        DTYPE *dst,
+                                                        AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -105,12 +102,11 @@ add_vals_kernel( const size_t N, const size_t *indices, const STYPE *src, DTYPE 
 }
 
 template<typename STYPE, typename DTYPE>
-void DeviceDataHelpers<STYPE, DTYPE>::addValuesByIndex(
-    const size_t N,
-    const size_t *indices,
-    const STYPE *src,
-    DTYPE *dst,
-    const AMP::Utilities::AccelerationContext &ctx )
+void DeviceDataHelpers<STYPE, DTYPE>::addValuesByIndex( const size_t N,
+                                                        const size_t *indices,
+                                                        const STYPE *src,
+                                                        DTYPE *dst,
+                                                        AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -133,12 +129,11 @@ get_vals_kernel( const size_t N, const size_t *indices, STYPE *const src, DTYPE 
 }
 
 template<typename STYPE, typename DTYPE>
-void DeviceDataHelpers<STYPE, DTYPE>::getValuesByIndex(
-    const size_t N,
-    const size_t *indices,
-    const STYPE *src,
-    DTYPE *dst,
-    const AMP::Utilities::AccelerationContext &ctx )
+void DeviceDataHelpers<STYPE, DTYPE>::getValuesByIndex( const size_t N,
+                                                        const size_t *indices,
+                                                        const STYPE *src,
+                                                        DTYPE *dst,
+                                                        AMP::Utilities::AccelerationContext &ctx )
 {
     dim3 BlockDim;
     dim3 GridDim;
@@ -157,7 +152,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::setGhostValuesByGlobalID(
     const STYPE *src,
     const size_t dst_size,
     DTYPE *dst,
-    const AMP::Utilities::AccelerationContext &ctx )
+    AMP::Utilities::AccelerationContext &ctx )
 {
     // Perform vectorized lower_bound
     thrust::lower_bound( thrust::device.on( ctx.getStream() ),
@@ -181,7 +176,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::addGhostValuesByGlobalID(
     const STYPE *src,
     const size_t dst_size,
     DTYPE *dst,
-    const AMP::Utilities::AccelerationContext &ctx )
+    AMP::Utilities::AccelerationContext &ctx )
 {
     // Perform vectorized lower_bound to find positions in destination
     thrust::lower_bound( thrust::device.on( ctx.getStream() ),
@@ -224,7 +219,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID(
     const STYPE *src1,
     const STYPE *src2,
     DTYPE *dst,
-    const AMP::Utilities::AccelerationContext &ctx )
+    AMP::Utilities::AccelerationContext &ctx )
 {
     PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID" );
 
@@ -261,7 +256,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostAddValuesByGlobalID(
     const size_t src_size,
     const STYPE *src,
     DTYPE *dst,
-    const AMP::Utilities::AccelerationContext &ctx )
+    AMP::Utilities::AccelerationContext &ctx )
 {
     // Perform vectorized lower_bound to find positions in src
     thrust::lower_bound( thrust::device.on( ctx.getStream() ),

@@ -63,7 +63,7 @@ int MIS2Aggregator::classifyVertices(
     gidx_t *Ad_cols                                    = nullptr;
     scalar_t *Ad_coeffs                                = nullptr;
     std::tie( Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs ) = A_diag->getDataFields();
-    const auto &acc_ctx                                = A_diag->d_acceleration_context;
+    auto &acc_ctx                                      = A_diag->d_acceleration_context;
 
     // hash is xorshift* as given on wikipedia
     auto hash = [] AMP_FUNCTION_HD( uint64_t x ) -> uint64_t {
@@ -306,9 +306,9 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     constexpr bool host_exec = !Config::device_accessible;
 
     // Get diag block from A and mask it using SoC
-    const auto A_nrows  = static_cast<lidx_t>( A->numLocalRows() );
-    auto A_data         = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    const auto &acc_ctx = A_data->d_acceleration_context;
+    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
+    auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    auto &acc_ctx      = A_data->d_acceleration_context;
 
     // get fields from A and use to make diagonal-dominance checker
     auto A_diag   = A_data->getDiagMatrix();

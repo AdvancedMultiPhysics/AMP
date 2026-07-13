@@ -31,7 +31,7 @@ public:
 
     T *allocate( size_t n, hipStream_t ) { return allocate( n ); }
 
-    T *allocate( size_t n, const AMP::Utilities::AccelerationContext & ) { return allocate( n ); }
+    T *allocate( size_t n, AMP::Utilities::AccelerationContext & ) { return allocate( n ); }
 
     void deallocate( T *p, size_t )
     {
@@ -41,10 +41,7 @@ public:
 
     void deallocate( T *p, size_t n, hipStream_t ) { deallocate( p, n ); }
 
-    void deallocate( T *p, size_t n, const AMP::Utilities::AccelerationContext & )
-    {
-        deallocate( p, n );
-    }
+    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext & ) { deallocate( p, n ); }
 };
 
 /**
@@ -74,7 +71,7 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    T *allocate( size_t n, AMP::Utilities::AccelerationContext &ctx )
     {
         return allocate( n, ctx.getStream() );
     }
@@ -93,7 +90,7 @@ public:
         checkHipErrors( err );
     }
 
-    void deallocate( T *p, size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext &ctx )
     {
         deallocate( p, n, ctx.getStream() );
     }
@@ -130,7 +127,7 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    T *allocate( size_t n, AMP::Utilities::AccelerationContext &ctx )
     {
         return allocate( n, ctx.getStream() );
     }
@@ -148,7 +145,7 @@ public:
         checkHipErrors( err );
     }
 
-    void deallocate( T *p, size_t n, const AMP::Utilities::AccelerationContext &ctx )
+    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext &ctx )
     {
         deallocate( p, n, ctx.getStream() );
     }

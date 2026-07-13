@@ -300,7 +300,7 @@ public: // Write/read restart data
 
     std::shared_ptr<MatrixParametersBase> d_pParameters;
 
-    const AMP::Utilities::AccelerationContext &d_acceleration_context;
+    AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:
     // unique hash to identify this object

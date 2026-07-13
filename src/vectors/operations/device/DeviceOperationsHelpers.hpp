@@ -23,8 +23,9 @@ struct GenRand {
 
 
 template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::setRandomValues(
-    size_t N, TYPE *x, const AMP::Utilities::AccelerationContext &ctx )
+void DeviceOperationsHelpers<TYPE>::setRandomValues( size_t N,
+                                                     TYPE *x,
+                                                     AMP::Utilities::AccelerationContext &ctx )
 {
     static std::mt19937 gen;
     static std::uniform_int_distribution<size_t> dist;
@@ -38,7 +39,7 @@ template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha,
                                            size_t N,
                                            TYPE *x,
-                                           const AMP::Utilities::AccelerationContext &ctx )
+                                           AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform(
         thrust::device.on( ctx.getStream() ), x, x + N, x, alpha * thrust::placeholders::_1 );
@@ -46,50 +47,38 @@ void DeviceOperationsHelpers<TYPE>::scale( TYPE alpha,
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::scale(
-    TYPE alpha, size_t N, const TYPE *x, TYPE *y, const AMP::Utilities::AccelerationContext &ctx )
+    TYPE alpha, size_t N, const TYPE *x, TYPE *y, AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform(
         thrust::device.on( ctx.getStream() ), x, x + N, y, alpha * thrust::placeholders::_1 );
 }
 
 template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::add( size_t N,
-                                         const TYPE *x,
-                                         const TYPE *y,
-                                         TYPE *z,
-                                         const AMP::Utilities::AccelerationContext &ctx )
+void DeviceOperationsHelpers<TYPE>::add(
+    size_t N, const TYPE *x, const TYPE *y, TYPE *z, AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform( thrust::device.on( ctx.getStream() ), x, x + N, y, z, thrust::plus<TYPE>() );
 }
 
 template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::subtract( size_t N,
-                                              const TYPE *x,
-                                              const TYPE *y,
-                                              TYPE *z,
-                                              const AMP::Utilities::AccelerationContext &ctx )
+void DeviceOperationsHelpers<TYPE>::subtract(
+    size_t N, const TYPE *x, const TYPE *y, TYPE *z, AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform(
         thrust::device.on( ctx.getStream() ), x, x + N, y, z, thrust::minus<TYPE>() );
 }
 
 template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::multiply( size_t N,
-                                              const TYPE *x,
-                                              const TYPE *y,
-                                              TYPE *z,
-                                              const AMP::Utilities::AccelerationContext &ctx )
+void DeviceOperationsHelpers<TYPE>::multiply(
+    size_t N, const TYPE *x, const TYPE *y, TYPE *z, AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform(
         thrust::device.on( ctx.getStream() ), x, x + N, y, z, thrust::multiplies<TYPE>() );
 }
 
 template<typename TYPE>
-void DeviceOperationsHelpers<TYPE>::divide( size_t N,
-                                            const TYPE *x,
-                                            const TYPE *y,
-                                            TYPE *z,
-                                            const AMP::Utilities::AccelerationContext &ctx )
+void DeviceOperationsHelpers<TYPE>::divide(
+    size_t N, const TYPE *x, const TYPE *y, TYPE *z, AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform(
         thrust::device.on( ctx.getStream() ), x, x + N, y, z, thrust::divides<TYPE>() );
@@ -100,7 +89,7 @@ template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::reciprocal( size_t N,
                                                 const TYPE *x,
                                                 TYPE *y,
-                                                const AMP::Utilities::AccelerationContext &ctx )
+                                                AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform( thrust::device.on( ctx.getStream() ),
                        x,
@@ -117,7 +106,7 @@ void DeviceOperationsHelpers<TYPE>::linearSum( const TYPE alpha,
                                                const TYPE beta,
                                                const TYPE *y,
                                                TYPE *z,
-                                               const AMP::Utilities::AccelerationContext &ctx )
+                                               AMP::Utilities::AccelerationContext &ctx )
 {
     if ( alpha == 1.0 && beta == 1.0 ) {
         thrust::transform( thrust::device.on( ctx.getStream() ), x, x + N, y, z, thrust::plus() );
@@ -150,7 +139,7 @@ template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::abs( size_t N,
                                          const TYPE *x,
                                          TYPE *y,
-                                         const AMP::Utilities::AccelerationContext &ctx )
+                                         AMP::Utilities::AccelerationContext &ctx )
 {
     auto lambda = [] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
     thrust::transform( thrust::device.on( ctx.getStream() ), x, x + N, y, lambda );
@@ -158,7 +147,7 @@ void DeviceOperationsHelpers<TYPE>::abs( size_t N,
 
 template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::addScalar(
-    size_t N, const TYPE *x, TYPE alpha, TYPE *y, const AMP::Utilities::AccelerationContext &ctx )
+    size_t N, const TYPE *x, TYPE alpha, TYPE *y, AMP::Utilities::AccelerationContext &ctx )
 {
     thrust::transform(
         thrust::device.on( ctx.getStream() ), x, x + N, y, thrust::placeholders::_1 + alpha );
@@ -168,7 +157,7 @@ template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::setMin( size_t N,
                                             TYPE alpha,
                                             TYPE *x,
-                                            const AMP::Utilities::AccelerationContext &ctx )
+                                            AMP::Utilities::AccelerationContext &ctx )
 {
     auto lambda = [alpha] __host__ __device__( TYPE x ) { return x < alpha ? alpha : x; };
     thrust::transform( thrust::device.on( ctx.getStream() ), x, x + N, x, lambda );
@@ -178,7 +167,7 @@ template<typename TYPE>
 void DeviceOperationsHelpers<TYPE>::setMax( size_t N,
                                             TYPE alpha,
                                             TYPE *x,
-                                            const AMP::Utilities::AccelerationContext &ctx )
+                                            AMP::Utilities::AccelerationContext &ctx )
 {
     auto lambda = [alpha] __host__ __device__( TYPE x ) { return x > alpha ? alpha : x; };
     thrust::transform( thrust::device.on( ctx.getStream() ), x, x + N, x, lambda );
@@ -187,7 +176,7 @@ void DeviceOperationsHelpers<TYPE>::setMax( size_t N,
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMin( size_t N,
                                               const TYPE *x,
-                                              const AMP::Utilities::AccelerationContext &ctx )
+                                              AMP::Utilities::AccelerationContext &ctx )
 {
     return thrust::reduce( thrust::device.on( ctx.getStream() ),
                            x,
@@ -199,7 +188,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localMin( size_t N,
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMax( size_t N,
                                               const TYPE *x,
-                                              const AMP::Utilities::AccelerationContext &ctx )
+                                              AMP::Utilities::AccelerationContext &ctx )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x; };
     return thrust::transform_reduce(
@@ -210,7 +199,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localMax( size_t N,
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localSum( size_t N,
                                               const TYPE *x,
-                                              const AMP::Utilities::AccelerationContext &ctx )
+                                              AMP::Utilities::AccelerationContext &ctx )
 {
     return thrust::reduce(
         thrust::device.on( ctx.getStream() ), x, x + N, (TYPE) 0, thrust::plus<TYPE>() );
@@ -219,7 +208,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localSum( size_t N,
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localL1Norm( size_t N,
                                                  const TYPE *x,
-                                                 const AMP::Utilities::AccelerationContext &ctx )
+                                                 AMP::Utilities::AccelerationContext &ctx )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
     return thrust::transform_reduce(
@@ -229,7 +218,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localL1Norm( size_t N,
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localL2Norm2( size_t N,
                                                   const TYPE *x,
-                                                  const AMP::Utilities::AccelerationContext &ctx )
+                                                  AMP::Utilities::AccelerationContext &ctx )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x * x; };
     auto result = thrust::transform_reduce(
@@ -240,7 +229,7 @@ TYPE DeviceOperationsHelpers<TYPE>::localL2Norm2( size_t N,
 template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localMaxNorm( size_t N,
                                                   const TYPE *x,
-                                                  const AMP::Utilities::AccelerationContext &ctx )
+                                                  AMP::Utilities::AccelerationContext &ctx )
 {
     auto lambda = [=] __host__ __device__( TYPE x ) { return x < 0 ? -x : x; };
     return thrust::transform_reduce(
@@ -251,14 +240,16 @@ template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localDot( size_t N,
                                               const TYPE *x,
                                               const TYPE *y,
-                                              const AMP::Utilities::AccelerationContext &ctx )
+                                              AMP::Utilities::AccelerationContext &ctx )
 {
     return thrust::inner_product( thrust::device.on( ctx.getStream() ), x, x + N, y, (TYPE) 0 );
 }
 
 template<typename TYPE>
-TYPE DeviceOperationsHelpers<TYPE>::localMinQuotient(
-    size_t N, const TYPE *x, const TYPE *y, const AMP::Utilities::AccelerationContext &ctx )
+TYPE DeviceOperationsHelpers<TYPE>::localMinQuotient( size_t N,
+                                                      const TYPE *x,
+                                                      const TYPE *y,
+                                                      AMP::Utilities::AccelerationContext &ctx )
 {
     return thrust::inner_product( thrust::device.on( ctx.getStream() ),
                                   x,
@@ -280,7 +271,7 @@ template<typename TYPE>
 TYPE DeviceOperationsHelpers<TYPE>::localWrmsNorm( size_t N,
                                                    const TYPE *x,
                                                    const TYPE *y,
-                                                   const AMP::Utilities::AccelerationContext &ctx )
+                                                   AMP::Utilities::AccelerationContext &ctx )
 {
     return thrust::inner_product( thrust::device.on( ctx.getStream() ),
                                   x,

@@ -274,7 +274,7 @@ public:
     //! Memory location, set by examining type of Allocator
     static constexpr Utilities::MemoryType d_memory_location = Config::mem_loc;
 
-    const AMP::Utilities::AccelerationContext &d_acceleration_context;
+    AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:
     /** \brief  Sort the columns/values within each row

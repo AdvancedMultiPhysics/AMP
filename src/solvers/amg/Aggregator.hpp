@@ -129,10 +129,10 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     using matrix_t     = LinearAlgebra::CSRMatrix<Config>;
     using matrixdata_t = typename matrix_t::matrixdata_t;
 
-    auto A_data         = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
-    auto A_diag         = A_data->getDiagMatrix();
-    const auto A_nrows  = static_cast<lidx_t>( A->numLocalRows() );
-    const auto &acc_ctx = A_data->d_acceleration_context;
+    auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    auto A_diag        = A_data->getDiagMatrix();
+    const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
+    auto &acc_ctx      = A_data->d_acceleration_context;
 
     // get aggregates
     auto agg_ids       = A_diag->template sharedArrayBuilder<int>( A_nrows );
