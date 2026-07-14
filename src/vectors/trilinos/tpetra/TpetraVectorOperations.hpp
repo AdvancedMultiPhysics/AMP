@@ -323,10 +323,11 @@ TpetraVectorOperations<ST, LO, GO, NT>::localMin( const AMP::LinearAlgebra::Vect
 {
     const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
     auto xData     = xt.getData( 0 );
-    return AMP::Utilities::Algorithms::min_element( xData.get(),
-                                                    xData.size(),
-                                                    AMP::Utilities::getMemoryType( xData.get() ),
-                                                    AMP::AMPManager::getDefaultComputeStream() );
+    return AMP::Utilities::Algorithms::min_element(
+        xData.get(),
+        xData.size(),
+        AMP::Utilities::getMemoryType( xData.get() ),
+        AMP::AMPManager::getDefaultAccelerationContext() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -335,10 +336,11 @@ TpetraVectorOperations<ST, LO, GO, NT>::localMax( const AMP::LinearAlgebra::Vect
 {
     const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
     auto xData     = xt.getData( 0 );
-    return AMP::Utilities::Algorithms::max_element( xData.get(),
-                                                    xData.size(),
-                                                    AMP::Utilities::getMemoryType( xData.get() ),
-                                                    AMP::AMPManager::getDefaultComputeStream() );
+    return AMP::Utilities::Algorithms::max_element(
+        xData.get(),
+        xData.size(),
+        AMP::Utilities::getMemoryType( xData.get() ),
+        AMP::AMPManager::getDefaultAccelerationContext() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -348,11 +350,12 @@ TpetraVectorOperations<ST, LO, GO, NT>::localSum( const AMP::LinearAlgebra::Vect
     const auto &xt = getTpetraVector<ST, LO, GO, NT>( x );
     AMP_ASSERT( xt.getNumVectors() == 1 );
     auto xData = xt.getData( 0 );
-    return AMP::Utilities::Algorithms::accumulate( xData.get(),
-                                                   xData.size(),
-                                                   static_cast<ST>( 0 ),
-                                                   AMP::Utilities::getMemoryType( xData.get() ),
-                                                   AMP::AMPManager::getDefaultComputeStream() );
+    return AMP::Utilities::Algorithms::accumulate(
+        xData.get(),
+        xData.size(),
+        static_cast<ST>( 0 ),
+        AMP::Utilities::getMemoryType( xData.get() ),
+        AMP::AMPManager::getDefaultAccelerationContext() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

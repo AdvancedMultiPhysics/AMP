@@ -68,7 +68,7 @@ void TpetraVectorData<ST, LO, GO, NT>::putRawData( const void *in,
                                         src_data,
                                         buf_loc,
                                         dst_data.size(),
-                                        AMP::AMPManager::getDefaultComputeStream() );
+                                        AMP::AMPManager::getDefaultAccelerationContext() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -88,7 +88,7 @@ void TpetraVectorData<ST, LO, GO, NT>::getRawData( void *out,
                                         src_data.get(),
                                         src_loc,
                                         src_data.size(),
-                                        AMP::AMPManager::getDefaultComputeStream() );
+                                        AMP::AMPManager::getDefaultAccelerationContext() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

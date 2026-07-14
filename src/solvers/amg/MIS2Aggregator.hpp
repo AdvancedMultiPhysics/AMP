@@ -63,7 +63,7 @@ int MIS2Aggregator::classifyVertices(
     gidx_t *Ad_cols                                    = nullptr;
     scalar_t *Ad_coeffs                                = nullptr;
     std::tie( Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs ) = A_diag->getDataFields();
-    auto &acc_ctx                                      = A_diag->d_acceleration_context;
+    [[maybe_unused]] auto &acc_ctx                     = A_diag->d_acceleration_context;
 
     // hash is xorshift* as given on wikipedia
     auto hash = [] AMP_FUNCTION_HD( uint64_t x ) -> uint64_t {

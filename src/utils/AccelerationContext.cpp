@@ -6,37 +6,22 @@
 
 namespace AMP::Utilities {
 
-AccelerationContext::AccelerationContext()
-    : d_stream( nullptr ),
-      d_manage_stream_deletion( false ),
-#ifdef AMP_USE_KOKKOS
-      d_kokkos_exec_default( std::nullopt ),
-      d_kokkos_exec_host( std::nullopt )
-#endif
+AccelerationContext::AccelerationContext() : d_stream( nullptr ), d_manage_stream_deletion( false )
 {
 }
 
 AccelerationContext::AccelerationContext( const ComputeStream stream,
                                           const bool manage_stream_deletion )
-    : d_stream( stream ),
-      d_manage_stream_deletion( manage_stream_deletion ),
-#ifdef AMP_USE_KOKKOS
-    #ifdef AMP_USE_DEVICE
-      d_kokkos_exec_default( stream ),
-    #else
-      d_kokkos_exec_default(),
-    #endif
-      d_kokkos_exec_host()
-#endif
+    : d_stream( stream ), d_manage_stream_deletion( manage_stream_deletion )
 {
 }
 
 AccelerationContext::~AccelerationContext()
 {
+#ifdef AMP_USE_KOKKOS
     // Kokkos execution spaces with streams need to deallocate
     // internal memory tied to that stream *before* that stream
     // is destroyed. Trigger their destructors by writing in nullopts
-#ifdef AMP_USE_KOKKOS
     d_kokkos_exec_default = std::nullopt;
     d_kokkos_exec_host    = std::nullopt;
 #endif
@@ -51,9 +36,13 @@ void AccelerationContext::setComputeStream( const ComputeStream stream,
                                             const bool manage_stream_deletion )
 {
 #ifdef AMP_USE_DEVICE
-    // destroy current stream if we own it and it is non-null
-    if ( d_manage_stream_deletion && d_stream ) {
-        deviceStreamDestroy( d_stream );
+    // synchronize on current stream if it exists
+    if ( d_stream ) {
+        deviceStreamSynchronize( d_stream );
+        // then delete it if this context owns it
+        if ( d_manage_stream_deletion ) {
+            deviceStreamDestroy( d_stream );
+        }
     }
 #endif
     // update stream and ownership
