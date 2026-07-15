@@ -4,6 +4,7 @@
 #include <fstream>
 #include <numeric>
 #include <optional>
+#include <string>
 
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/amg/Aggregation.h"
@@ -11,6 +12,21 @@
 #include "AMP/vectors/VectorBuilder.h"
 
 namespace AMP::Solver::AMG {
+
+template<class Allocator>
+void insist_cpu_only_aggregation( const char *routine )
+{
+    const auto mem_loc = AMP::Utilities::getAllocatorMemoryType<Allocator>();
+    AMP_INSIST( mem_loc < AMP::Utilities::MemoryType::device,
+                std::string{ routine } + " does not support device memory" );
+}
+
+template<class View>
+void insist_cpu_only_aggregation_view( const char *routine )
+{
+    insist_cpu_only_aggregation<typename View::allocator_type>( routine );
+}
+
 
 template<class View>
 struct aggregate_type {
@@ -20,7 +36,11 @@ struct aggregate_type {
     template<class T>
     using vector_type = std::vector<T, rebind_alloc<alloc_t, T>>;
 
-    aggregate_type() : rowptr{ { 0 } } {}
+    aggregate_type()
+    {
+        insist_cpu_only_aggregation<alloc_t>( "AMG::aggregate_type" );
+        rowptr.push_back( 0 );
+    }
     vector_type<value_type> colind;
     vector_type<typename decltype( colind )::size_type> rowptr;
 
@@ -175,6 +195,7 @@ aggregate_type<csr_view<Mat>> pairwise_aggregate( csr_view<Mat> A,
                                                   const PairwiseCoarsenSettings &settings )
 {
     PROFILE( "AMG::pairwise_aggregate" );
+    insist_cpu_only_aggregation_view<csr_view<Mat>>( "AMG::pairwise_aggregate" );
     aggregate_type<csr_view<Mat>> aggregates;
     aggregates.rowptr.reserve( A.numLocalRows() / 2 + 1 );
     aggregates.colind.reserve( A.numLocalRows() );
@@ -548,6 +569,7 @@ template<class Fine>
 auto pairwise_aggregation( csr_view<Fine> A, const PairwiseCoarsenSettings &settings )
 {
     PROFILE( "AMG::pairwise_aggregation" );
+    insist_cpu_only_aggregation_view<csr_view<Fine>>( "AMG::pairwise_aggregation" );
     PairwiseCoarsenSettings settings_later_passes = settings;
     settings_later_passes.checkdd                 = false;
     if ( settings.pairwise_passes == 2 ) {
@@ -573,6 +595,7 @@ template<class Config>
 coarse_ops_type pairwise_coarsen( const LinearAlgebra::CSRMatrix<Config> &fine,
                                   const PairwiseCoarsenSettings &settings )
 {
+    insist_cpu_only_aggregation<typename Config::allocator_type>( "AMG::pairwise_coarsen" );
     AMP_INSIST( settings.pairwise_passes == 2 || settings.pairwise_passes == 3,
                 "Pairwise Aggregation: invalid number of passes" );
 
@@ -642,6 +665,8 @@ template<class Config>
 int PairwiseAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A,
                                                int *agg_ids )
 {
+    insist_cpu_only_aggregation<typename Config::allocator_type>(
+        "AMG::PairwiseAggregator::assignLocalAggregates" );
     auto aggregates  = pairwise_aggregation( csr_view( *A ), d_settings );
     auto aggregatesT = transpose_aggregates( aggregates, A->numLocalRows() );
 
