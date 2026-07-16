@@ -49,8 +49,9 @@ void VectorData::makeConsistent()
     PROFILE( "VectorData::makeConsistent" );
 
     // always stream sync for managed in case downstream usage is on host
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
     if ( this->getMemoryLocation() == AMP::Utilities::MemoryType::managed ) {
-        d_acceleration_context.synchronizeStream();
+        deviceStreamSynchronize( stream );
     }
 
     auto state = getGlobalUpdateStatus();
@@ -169,7 +170,6 @@ void VectorData::writeRestart( int64_t fid ) const
     IO::writeHDF5( fid, "localStart", d_localStart );
 }
 VectorData::VectorData( int64_t fid, AMP::IO::RestartManager * )
-    : d_acceleration_context( AMP::AMPManager::getDefaultAccelerationContext() )
 {
     IO::readHDF5( fid, "localSize", d_localSize );
     IO::readHDF5( fid, "globalSize", d_globalSize );

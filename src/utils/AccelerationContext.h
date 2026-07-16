@@ -32,10 +32,15 @@ public:
 
     void synchronizeStream() const;
 
+    void freeStream();
+
 #ifdef AMP_USE_KOKKOS
     const Kokkos::DefaultExecutionSpace &getKokkosExecDefault();
     const Kokkos::DefaultHostExecutionSpace &getKokkosExecHost();
+    void freeKokkosExec();
 #endif
+
+    static AccelerationContext default_context;
 
 private:
     void createStream();

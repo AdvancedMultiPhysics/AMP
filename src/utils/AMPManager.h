@@ -2,7 +2,6 @@
 #define included_AMP_AMPManager
 
 #include "AMP/utils/AMP_MPI.h"
-#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/device/Device.h"
 
 #include <array>
@@ -20,7 +19,6 @@ class abort_error;
 
 
 namespace AMP {
-
 
 /*!
  * @brief Class AMPManagerProperties is a class that contains the various startup options for AMP
@@ -118,13 +116,6 @@ public:
      */
     int default_OpenMP_threads = 0;
 
-    /*!
-     * Default context for accelerator information, mainly useful in GPU-enabled builds
-     * other contexts can be built as needed, but this will always exist to provide
-     * a stream to enqueue work on and Kokkos execution spaces compatible with that stream
-     */
-    Utilities::AccelerationContext acceleration_context;
-
 private:
     friend class AMPManager;
 };
@@ -211,15 +202,8 @@ public:
     //! Get the global comm
     static const AMP::AMP_MPI &getCommWorld();
 
-    static Utilities::ComputeStream getDefaultComputeStream()
-    {
-        return d_properties.acceleration_context.getStream();
-    }
-
-    static Utilities::AccelerationContext &getDefaultAccelerationContext()
-    {
-        return d_properties.acceleration_context;
-    }
+    //! Get AMP's default compute stream for GPU offloading
+    static AMP::Utilities::ComputeStream getDefaultComputeStream();
 
     //! Set the global comm
     static void setCommWorld( const AMP::AMP_MPI & );
@@ -247,7 +231,6 @@ private:
     static double start_HYPRE();
     static double initDevices();
     static double bindDevices();
-    static double setupAccelerationContext();
     static double start_OpenMP();
     static double stop_SAMRAI();
     static double stop_HYPRE();

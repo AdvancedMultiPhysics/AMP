@@ -38,11 +38,11 @@ template<typename STYPE, typename DTYPE>
 bool DeviceDataHelpers<STYPE, DTYPE>::containsIndex( const size_t N,
                                                      const size_t *indices,
                                                      const size_t i,
-                                                     AMP::Utilities::AccelerationContext &ctx )
+                                                     const AMP::Utilities::ComputeStream stream )
 {
     thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( indices );
 
-    auto it = thrust::find( thrust::device.on( ctx.getStream() ), ndx_ptr, ndx_ptr + N, i );
+    auto it = thrust::find( thrust::device.on( stream ), ndx_ptr, ndx_ptr + N, i );
     return ( it != ( ndx_ptr + N ) );
 }
 
@@ -51,7 +51,7 @@ bool DeviceDataHelpers<STYPE, DTYPE>::allGhostIndices( const size_t N,
                                                        const size_t *indices,
                                                        const size_t start,
                                                        const size_t end,
-                                                       AMP::Utilities::AccelerationContext &ctx )
+                                                       const AMP::Utilities::ComputeStream stream )
 {
     thrust::device_ptr<const size_t> ndx_ptr = thrust::device_pointer_cast( indices );
 
@@ -59,8 +59,7 @@ bool DeviceDataHelpers<STYPE, DTYPE>::allGhostIndices( const size_t N,
         return x < start || x >= end;
     };
     const bool valid =
-        thrust::all_of( thrust::device.on( ctx.getStream() ), ndx_ptr, ndx_ptr + N, out_of_range );
-    ctx.synchronizeStream();
+        thrust::all_of( thrust::device.on( stream ), ndx_ptr, ndx_ptr + N, out_of_range );
     return valid;
 }
 
@@ -69,13 +68,12 @@ void DeviceDataHelpers<STYPE, DTYPE>::setValuesByIndex( const size_t N,
                                                         const size_t *indices,
                                                         const STYPE *src,
                                                         DTYPE *dst,
-                                                        AMP::Utilities::AccelerationContext &ctx )
+                                                        const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, set_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
-    set_vals_kernel<<<GridDim, BlockDim, 0, ctx.getStream()>>>( N, indices, src, dst );
-    ctx.synchronizeStream();
+    set_vals_kernel<<<GridDim, BlockDim, 0, stream>>>( N, indices, src, dst );
 }
 
 template<typename STYPE, typename DTYPE>
@@ -106,13 +104,12 @@ void DeviceDataHelpers<STYPE, DTYPE>::addValuesByIndex( const size_t N,
                                                         const size_t *indices,
                                                         const STYPE *src,
                                                         DTYPE *dst,
-                                                        AMP::Utilities::AccelerationContext &ctx )
+                                                        const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, add_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
-    add_vals_kernel<<<GridDim, BlockDim, 0, ctx.getStream()>>>( N, indices, src, dst );
-    ctx.synchronizeStream();
+    add_vals_kernel<<<GridDim, BlockDim, 0, stream>>>( N, indices, src, dst );
 }
 
 template<typename STYPE, typename DTYPE>
@@ -133,13 +130,12 @@ void DeviceDataHelpers<STYPE, DTYPE>::getValuesByIndex( const size_t N,
                                                         const size_t *indices,
                                                         const STYPE *src,
                                                         DTYPE *dst,
-                                                        AMP::Utilities::AccelerationContext &ctx )
+                                                        const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
     setKernelDims( N, get_vals_kernel<STYPE, DTYPE>, BlockDim, GridDim );
-    get_vals_kernel<<<GridDim, BlockDim, 0, ctx.getStream()>>>( N, indices, src, dst );
-    ctx.synchronizeStream();
+    get_vals_kernel<<<GridDim, BlockDim, 0, stream>>>( N, indices, src, dst );
 }
 
 template<typename STYPE, typename DTYPE>
@@ -152,17 +148,12 @@ void DeviceDataHelpers<STYPE, DTYPE>::setGhostValuesByGlobalID(
     const STYPE *src,
     const size_t dst_size,
     DTYPE *dst,
-    AMP::Utilities::AccelerationContext &ctx )
+    const AMP::Utilities::ComputeStream stream )
 {
     // Perform vectorized lower_bound
-    thrust::lower_bound( thrust::device.on( ctx.getStream() ),
-                         globalids,
-                         globalids + gsize,
-                         ndxReq,
-                         ndxReq + N,
-                         ndxMap );
-    thrust::scatter( thrust::device.on( ctx.getStream() ), src, src + N, ndxMap, dst );
-    ctx.synchronizeStream();
+    thrust::lower_bound(
+        thrust::device.on( stream ), globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
+    thrust::scatter( thrust::device.on( stream ), src, src + N, ndxMap, dst );
 }
 
 
@@ -176,27 +167,18 @@ void DeviceDataHelpers<STYPE, DTYPE>::addGhostValuesByGlobalID(
     const STYPE *src,
     const size_t dst_size,
     DTYPE *dst,
-    AMP::Utilities::AccelerationContext &ctx )
+    const AMP::Utilities::ComputeStream stream )
 {
     // Perform vectorized lower_bound to find positions in destination
-    thrust::lower_bound( thrust::device.on( ctx.getStream() ),
-                         globalids,
-                         globalids + gsize,
-                         ndxReq,
-                         ndxReq + N,
-                         ndxMap );
+    thrust::lower_bound(
+        thrust::device.on( stream ), globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
     // construct the [begin, end) for the map
     auto begin_map = thrust::make_permutation_iterator( dst, ndxMap );
     auto end_map   = thrust::make_permutation_iterator( dst, ndxMap + N );
 
     // add the src vector to the mapped locations using transform with a binary op
-    thrust::transform( thrust::device.on( ctx.getStream() ),
-                       begin_map,
-                       end_map,
-                       src,
-                       begin_map,
-                       thrust::plus<DTYPE>() );
-    ctx.synchronizeStream();
+    thrust::transform(
+        thrust::device.on( stream ), begin_map, end_map, src, begin_map, thrust::plus<DTYPE>() );
 }
 
 template<typename TYPE>
@@ -219,17 +201,13 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID(
     const STYPE *src1,
     const STYPE *src2,
     DTYPE *dst,
-    AMP::Utilities::AccelerationContext &ctx )
+    const AMP::Utilities::ComputeStream stream )
 {
     PROFILE( "DeviceDataHelpers::getGhostValuesByGlobalID" );
 
     // Perform vectorized lower_bound to find positions in src
-    thrust::lower_bound( thrust::device.on( ctx.getStream() ),
-                         globalids,
-                         globalids + gsize,
-                         ndxReq,
-                         ndxReq + N,
-                         ndxMap );
+    thrust::lower_bound(
+        thrust::device.on( stream ), globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
 
     auto map_data_1_begin = thrust::make_permutation_iterator( src1, ndxMap );
     auto map_data_1_end   = thrust::make_permutation_iterator( src1, ndxMap + N );
@@ -242,8 +220,7 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostValuesByGlobalID(
         thrust::make_zip_iterator( thrust::make_tuple( map_data_1_end, map_data_2_end ) );
 
     thrust::transform(
-        thrust::device.on( ctx.getStream() ), zip_begin, zip_end, dst, pair_plus_op<DTYPE>() );
-    ctx.synchronizeStream();
+        thrust::device.on( stream ), zip_begin, zip_end, dst, pair_plus_op<DTYPE>() );
 }
 
 template<typename STYPE, typename DTYPE>
@@ -256,18 +233,13 @@ void DeviceDataHelpers<STYPE, DTYPE>::getGhostAddValuesByGlobalID(
     const size_t src_size,
     const STYPE *src,
     DTYPE *dst,
-    AMP::Utilities::AccelerationContext &ctx )
+    const AMP::Utilities::ComputeStream stream )
 {
     // Perform vectorized lower_bound to find positions in src
-    thrust::lower_bound( thrust::device.on( ctx.getStream() ),
-                         globalids,
-                         globalids + gsize,
-                         ndxReq,
-                         ndxReq + N,
-                         ndxMap );
+    thrust::lower_bound(
+        thrust::device.on( stream ), globalids, globalids + gsize, ndxReq, ndxReq + N, ndxMap );
 
-    thrust::gather( thrust::device.on( ctx.getStream() ), ndxMap, ndxMap + N, src, dst );
-    ctx.synchronizeStream();
+    thrust::gather( thrust::device.on( stream ), ndxMap, ndxMap + N, src, dst );
 }
 
 } // namespace LinearAlgebra

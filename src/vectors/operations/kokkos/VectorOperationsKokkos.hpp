@@ -1,4 +1,5 @@
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 #include "AMP/vectors/operations/kokkos/VectorOperationsKokkos.h"
@@ -58,9 +59,13 @@ void VectorOperationsKokkos<T>::setToScalar( const Scalar &alpha_in, VectorData 
     auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        Kokkos::deep_copy( x.d_acceleration_context.getKokkosExecHost(), xv, alpha );
+        Kokkos::deep_copy(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, alpha );
     } else {
-        Kokkos::deep_copy( x.d_acceleration_context.getKokkosExecDefault(), xv, alpha );
+        Kokkos::deep_copy(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+            xv,
+            alpha );
     }
     x.fillGhosts( alpha );
     // Override the status state since we set the ghost values
@@ -138,10 +143,10 @@ void VectorOperationsKokkos<T>::setRandomValues( VectorData &x )
     auto xv = wrapVecDataKokkos<T>( x );
     if ( !device_acc ) {
         random_call_wrapper<Kokkos::DefaultHostExecutionSpace>::random_kernel(
-            x.d_acceleration_context.getKokkosExecHost(), xv );
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv );
     } else {
         random_call_wrapper<Kokkos::DefaultExecutionSpace>::random_kernel(
-            x.d_acceleration_context.getKokkosExecDefault(), xv );
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv );
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -172,9 +177,12 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, VectorData &x )
 
     auto xv = wrapVecDataKokkos<T>( x );
     if ( !device_acc ) {
-        scale_kernel( x.d_acceleration_context.getKokkosExecHost(), alpha, xv );
+        scale_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), alpha, xv );
     } else {
-        scale_kernel( x.d_acceleration_context.getKokkosExecDefault(), alpha, xv );
+        scale_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+                      alpha,
+                      xv );
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -202,9 +210,15 @@ void VectorOperationsKokkos<T>::scale( const Scalar &alpha_in, const VectorData 
     auto yv       = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        scale_kernel( y.d_acceleration_context.getKokkosExecHost(), alpha, xv, yv );
+        scale_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(),
+                      alpha,
+                      xv,
+                      yv );
     } else {
-        scale_kernel( y.d_acceleration_context.getKokkosExecDefault(), alpha, xv, yv );
+        scale_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+                      alpha,
+                      xv,
+                      yv );
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -248,9 +262,14 @@ void VectorOperationsKokkos<T>::multiply( const VectorData &x, const VectorData 
     auto zv = wrapVecDataKokkos<T>( z );
 
     if ( !device_acc ) {
-        multiply_kernel( z.d_acceleration_context.getKokkosExecHost(), xv, yv, zv );
+        multiply_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, yv, zv );
     } else {
-        multiply_kernel( z.d_acceleration_context.getKokkosExecDefault(), xv, yv, zv );
+        multiply_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+            xv,
+            yv,
+            zv );
     }
     z.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -278,9 +297,13 @@ void VectorOperationsKokkos<T>::divide( const VectorData &x, const VectorData &y
     auto zv = wrapVecDataKokkos<T>( z );
 
     if ( !device_acc ) {
-        divide_kernel( z.d_acceleration_context.getKokkosExecHost(), xv, yv, zv );
+        divide_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, yv, zv );
     } else {
-        divide_kernel( z.d_acceleration_context.getKokkosExecDefault(), xv, yv, zv );
+        divide_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+                       xv,
+                       yv,
+                       zv );
     }
     z.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -307,9 +330,11 @@ void VectorOperationsKokkos<T>::reciprocal( const VectorData &x, VectorData &y )
     auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        reciprocal_kernel( y.d_acceleration_context.getKokkosExecHost(), xv, yv );
+        reciprocal_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, yv );
     } else {
-        reciprocal_kernel( y.d_acceleration_context.getKokkosExecDefault(), xv, yv );
+        reciprocal_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv, yv );
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -344,9 +369,19 @@ void VectorOperationsKokkos<T>::linearSum( const Scalar &alpha_in,
     auto zv       = wrapVecDataKokkos<T>( z );
 
     if ( !device_acc ) {
-        linsum_kernel( z.d_acceleration_context.getKokkosExecHost(), alpha, xv, beta, yv, zv );
+        linsum_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(),
+                       alpha,
+                       xv,
+                       beta,
+                       yv,
+                       zv );
     } else {
-        linsum_kernel( z.d_acceleration_context.getKokkosExecDefault(), alpha, xv, beta, yv, zv );
+        linsum_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+                       alpha,
+                       xv,
+                       beta,
+                       yv,
+                       zv );
     }
     z.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -395,9 +430,11 @@ void VectorOperationsKokkos<T>::abs( const VectorData &x, VectorData &y )
     auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        abs_kernel( y.d_acceleration_context.getKokkosExecHost(), xv, yv );
+        abs_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, yv );
     } else {
-        abs_kernel( y.d_acceleration_context.getKokkosExecDefault(), xv, yv );
+        abs_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv, yv );
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -427,9 +464,16 @@ void VectorOperationsKokkos<T>::addScalar( const VectorData &x,
     auto yv       = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        add_scalar_kernel( y.d_acceleration_context.getKokkosExecHost(), alpha, xv, yv );
+        add_scalar_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(),
+                           alpha,
+                           xv,
+                           yv );
     } else {
-        add_scalar_kernel( y.d_acceleration_context.getKokkosExecDefault(), alpha, xv, yv );
+        add_scalar_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+            alpha,
+            xv,
+            yv );
     }
     y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -456,9 +500,12 @@ void VectorOperationsKokkos<T>::setMin( const Scalar &alpha_in, VectorData &x )
     auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        set_min_kernel( x.d_acceleration_context.getKokkosExecHost(), alpha, xv );
+        set_min_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), alpha, xv );
     } else {
-        set_min_kernel( x.d_acceleration_context.getKokkosExecDefault(), alpha, xv );
+        set_min_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+                        alpha,
+                        xv );
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -485,9 +532,12 @@ void VectorOperationsKokkos<T>::setMax( const Scalar &alpha_in, VectorData &x )
     auto xv       = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        set_max_kernel( x.d_acceleration_context.getKokkosExecHost(), alpha, xv );
+        set_max_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), alpha, xv );
     } else {
-        set_max_kernel( x.d_acceleration_context.getKokkosExecDefault(), alpha, xv );
+        set_max_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+                        alpha,
+                        xv );
     }
     x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -518,9 +568,11 @@ Scalar VectorOperationsKokkos<T>::localMin( const VectorData &x ) const
     auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        min_val = min_kernel( x.d_acceleration_context.getKokkosExecHost(), xv );
+        min_val = min_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv );
     } else {
-        min_val = min_kernel( x.d_acceleration_context.getKokkosExecDefault(), xv );
+        min_val = min_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv );
     }
 
     return min_val;
@@ -552,9 +604,11 @@ Scalar VectorOperationsKokkos<T>::localMax( const VectorData &x ) const
     auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        max_val = max_kernel( x.d_acceleration_context.getKokkosExecHost(), xv );
+        max_val = max_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv );
     } else {
-        max_val = max_kernel( x.d_acceleration_context.getKokkosExecDefault(), xv );
+        max_val = max_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv );
     }
 
     return max_val;
@@ -586,9 +640,11 @@ Scalar VectorOperationsKokkos<T>::localSum( const VectorData &x ) const
     auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        sum = sum_kernel( x.d_acceleration_context.getKokkosExecHost(), xv );
+        sum = sum_kernel( AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(),
+                          xv );
     } else {
-        sum = sum_kernel( x.d_acceleration_context.getKokkosExecDefault(), xv );
+        sum = sum_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv );
     }
 
     return sum;
@@ -620,9 +676,11 @@ Scalar VectorOperationsKokkos<T>::localL1Norm( const VectorData &x ) const
     auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        norm = l1_norm_kernel( x.d_acceleration_context.getKokkosExecHost(), xv );
+        norm = l1_norm_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv );
     } else {
-        norm = l1_norm_kernel( x.d_acceleration_context.getKokkosExecDefault(), xv );
+        norm = l1_norm_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv );
     }
 
     return norm;
@@ -654,9 +712,11 @@ Scalar VectorOperationsKokkos<T>::localL2Norm2( const VectorData &x ) const
     auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        norm = l2_norm_kernel( x.d_acceleration_context.getKokkosExecHost(), xv );
+        norm = l2_norm_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv );
     } else {
-        norm = l2_norm_kernel( x.d_acceleration_context.getKokkosExecDefault(), xv );
+        norm = l2_norm_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv );
     }
 
     return norm;
@@ -691,9 +751,11 @@ Scalar VectorOperationsKokkos<T>::localMaxNorm( const VectorData &x ) const
     auto xv = wrapVecDataKokkos<T>( x );
 
     if ( !device_acc ) {
-        norm = max_norm_kernel( x.d_acceleration_context.getKokkosExecHost(), xv );
+        norm = max_norm_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv );
     } else {
-        norm = max_norm_kernel( x.d_acceleration_context.getKokkosExecDefault(), xv );
+        norm = max_norm_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv );
     }
 
     return norm;
@@ -726,9 +788,11 @@ Scalar VectorOperationsKokkos<T>::localDot( const VectorData &x, const VectorDat
     auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        dot = dot_kernel( y.d_acceleration_context.getKokkosExecHost(), xv, yv );
+        dot = dot_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, yv );
     } else {
-        dot = dot_kernel( y.d_acceleration_context.getKokkosExecDefault(), xv, yv );
+        dot = dot_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv, yv );
     }
 
     return dot;
@@ -765,10 +829,11 @@ Scalar VectorOperationsKokkos<T>::localMinQuotient( const VectorData &x, const V
     auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        min_quotient = min_quotient_kernel( y.d_acceleration_context.getKokkosExecHost(), xv, yv );
+        min_quotient = min_quotient_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, yv );
     } else {
-        min_quotient =
-            min_quotient_kernel( y.d_acceleration_context.getKokkosExecDefault(), xv, yv );
+        min_quotient = min_quotient_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv, yv );
     }
 
     return min_quotient;
@@ -801,9 +866,11 @@ Scalar VectorOperationsKokkos<T>::localWrmsNorm( const VectorData &x, const Vect
     auto yv = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        norm = wrms_kernel( y.d_acceleration_context.getKokkosExecHost(), xv, yv );
+        norm = wrms_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), xv, yv );
     } else {
-        norm = wrms_kernel( y.d_acceleration_context.getKokkosExecDefault(), xv, yv );
+        norm = wrms_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(), xv, yv );
     }
 
     return norm;
@@ -844,9 +911,14 @@ Scalar VectorOperationsKokkos<T>::localWrmsNormMask( const VectorData &x,
     auto mv = wrapVecDataKokkos<T>( mask );
 
     if ( !device_acc ) {
-        norm = wrms_mask_kernel( y.d_acceleration_context.getKokkosExecHost(), mv, xv, yv );
+        norm = wrms_mask_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), mv, xv, yv );
     } else {
-        norm = wrms_mask_kernel( y.d_acceleration_context.getKokkosExecDefault(), mv, xv, yv );
+        norm = wrms_mask_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+            mv,
+            xv,
+            yv );
     }
 
     return norm;
@@ -886,9 +958,14 @@ bool VectorOperationsKokkos<T>::localEquals( const VectorData &x,
     auto yv     = wrapVecDataKokkos<T>( y );
 
     if ( !device_acc ) {
-        equals = equals_kernel( y.d_acceleration_context.getKokkosExecHost(), tol, xv, yv );
+        equals = equals_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecHost(), tol, xv, yv );
     } else {
-        equals = equals_kernel( y.d_acceleration_context.getKokkosExecDefault(), tol, xv, yv );
+        equals = equals_kernel(
+            AMP::Utilities::AccelerationContext::default_context.getKokkosExecDefault(),
+            tol,
+            xv,
+            yv );
     }
 
     return equals;

@@ -6,6 +6,9 @@
 
 namespace AMP::Utilities {
 
+// static member definition
+AccelerationContext AccelerationContext::default_context;
+
 AccelerationContext::AccelerationContext() : d_stream( nullptr ), d_manage_stream_deletion( false )
 {
 }
@@ -19,33 +22,16 @@ AccelerationContext::AccelerationContext( const ComputeStream stream,
 AccelerationContext::~AccelerationContext()
 {
 #ifdef AMP_USE_KOKKOS
-    // Kokkos execution spaces with streams need to deallocate
-    // internal memory tied to that stream *before* that stream
-    // is destroyed. Trigger their destructors by writing in nullopts
-    d_kokkos_exec_default = std::nullopt;
-    d_kokkos_exec_host    = std::nullopt;
+    freeKokkosExec();
 #endif
-#ifdef AMP_USE_DEVICE
-    if ( d_manage_stream_deletion ) {
-        deviceStreamDestroy( d_stream );
-    }
-#endif
+    freeStream();
 }
 
 void AccelerationContext::setComputeStream( const ComputeStream stream,
                                             const bool manage_stream_deletion )
 {
-#ifdef AMP_USE_DEVICE
-    // synchronize on current stream if it exists
-    if ( d_stream ) {
-        deviceStreamSynchronize( d_stream );
-        // then delete it if this context owns it
-        if ( d_manage_stream_deletion ) {
-            deviceStreamDestroy( d_stream );
-        }
-    }
-#endif
     // update stream and ownership
+    freeStream();
     d_stream                 = stream;
     d_manage_stream_deletion = manage_stream_deletion;
 }
@@ -59,6 +45,21 @@ void AccelerationContext::createStream()
         setComputeStream( stream, true );
     }
 #endif
+}
+
+void AccelerationContext::freeStream()
+{
+#ifdef AMP_USE_DEVICE
+    // synchronize on current stream if it exists
+    if ( d_stream ) {
+        deviceStreamSynchronize( d_stream );
+        // then delete it if this context owns it
+        if ( d_manage_stream_deletion ) {
+            deviceStreamDestroy( d_stream );
+        }
+    }
+#endif
+    d_stream = nullptr;
 }
 
 ComputeStream AccelerationContext::getStream()
@@ -98,6 +99,15 @@ const Kokkos::DefaultHostExecutionSpace &AccelerationContext::getKokkosExecHost(
         d_kokkos_exec_host = std::make_optional<Kokkos::DefaultHostExecutionSpace>();
     }
     return d_kokkos_exec_host.value();
+}
+
+void AccelerationContext::freeKokkosExec()
+{
+    // Kokkos execution spaces with streams need to deallocate
+    // internal memory tied to that stream *before* that stream
+    // is destroyed. Trigger their destructors by writing in nullopts
+    d_kokkos_exec_default = std::nullopt;
+    d_kokkos_exec_host    = std::nullopt;
 }
 #endif
 

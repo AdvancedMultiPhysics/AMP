@@ -5,6 +5,7 @@
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/GroupedRedistributionPlan.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
@@ -48,8 +49,9 @@ public:
         typename std::allocator_traits<allocator_type>::template rebind_alloc<lidx_t>;
     using scalarAllocator_t =
         typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
-    using localmatrixdata_t = CSRLocalMatrixData<Config>;
-    using mask_t            = typename localmatrixdata_t::mask_t;
+    using localmatrixdata_t                 = CSRLocalMatrixData<Config>;
+    using mask_t                            = typename localmatrixdata_t::mask_t;
+    static constexpr bool device_accessible = Config::device_accessible;
 
     /** \brief  Constructor
      * \param[in] params  Description of the matrix
@@ -385,6 +387,8 @@ protected:
 public:
     //! Memory location alias
     static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
+
+    AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:
     //! Matrix is square if true

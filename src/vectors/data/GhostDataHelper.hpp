@@ -3,6 +3,7 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/RestartManager.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/device/Device.h"
 #include "AMP/vectors/data/GhostDataHelper.h"
@@ -53,34 +54,34 @@ void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
 {
     PROFILE( "GhostDataHelper::allocateBuffers" );
 
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
+
     if ( len > 0 ) {
         d_ghostSize = len;
 
         // deallocate existing data
         if ( this->d_Ghosts ) {
-            this->d_alloc.deallocate( this->d_Ghosts, this->d_ghostSize, d_acceleration_context );
+            this->d_alloc.deallocate( this->d_Ghosts, this->d_ghostSize, stream );
             this->d_Ghosts = nullptr;
         }
         if ( this->d_AddBuffer ) {
-            this->d_alloc.deallocate(
-                this->d_AddBuffer, this->d_ghostSize, d_acceleration_context );
+            this->d_alloc.deallocate( this->d_AddBuffer, this->d_ghostSize, stream );
             this->d_AddBuffer = nullptr;
         }
         if ( this->d_ReceiveDOFList ) {
-            this->d_size_t_alloc.deallocate(
-                this->d_ReceiveDOFList, this->d_ghostSize, d_acceleration_context );
+            this->d_size_t_alloc.deallocate( this->d_ReceiveDOFList, this->d_ghostSize, stream );
             this->d_ReceiveDOFList = nullptr;
         }
 
         // allocate space for ghost and add buffers, cache ghost id's
-        this->d_Ghosts         = d_alloc.allocate( d_ghostSize, d_acceleration_context );
-        this->d_AddBuffer      = d_alloc.allocate( d_ghostSize, d_acceleration_context );
-        this->d_ReceiveDOFList = d_size_t_alloc.allocate( d_ghostSize, d_acceleration_context );
+        this->d_Ghosts         = d_alloc.allocate( d_ghostSize, stream );
+        this->d_AddBuffer      = d_alloc.allocate( d_ghostSize, stream );
+        this->d_ReceiveDOFList = d_size_t_alloc.allocate( d_ghostSize, stream );
 
         Utilities::Algorithms::zero_n(
-            this->d_Ghosts, this->d_ghostSize, d_memory_location, d_acceleration_context );
+            this->d_Ghosts, this->d_ghostSize, d_memory_location, stream );
         Utilities::Algorithms::zero_n(
-            this->d_AddBuffer, this->d_ghostSize, d_memory_location, d_acceleration_context );
+            this->d_AddBuffer, this->d_ghostSize, d_memory_location, stream );
 
         const auto &ghostIDs = this->d_CommList->getGhostIDList();
         Utilities::Algorithms::copy_n( this->d_ReceiveDOFList,
@@ -88,8 +89,8 @@ void GhostDataHelper<TYPE, Allocator>::allocateBuffers( size_t len )
                                        ghostIDs.data(),
                                        Utilities::MemoryType::host,
                                        this->d_ghostSize,
-                                       d_acceleration_context );
-        d_acceleration_context.synchronizeStream();
+                                       stream );
+        deviceStreamSynchronize( stream );
     }
 }
 
@@ -98,26 +99,26 @@ void GhostDataHelper<TYPE, Allocator>::deallocateBuffers()
 {
     PROFILE( "GhostDataHelper::deallocateBuffers" );
 
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
+
     if ( this->d_Ghosts ) {
-        this->d_alloc.deallocate( this->d_Ghosts, this->d_ghostSize, d_acceleration_context );
+        this->d_alloc.deallocate( this->d_Ghosts, this->d_ghostSize, stream );
         this->d_Ghosts = nullptr;
     }
     if ( this->d_AddBuffer ) {
-        this->d_alloc.deallocate( this->d_AddBuffer, this->d_ghostSize, d_acceleration_context );
+        this->d_alloc.deallocate( this->d_AddBuffer, this->d_ghostSize, stream );
         this->d_AddBuffer = nullptr;
     }
     if ( this->d_SendRecv ) {
-        this->d_alloc.deallocate( this->d_SendRecv, this->d_numRemote, d_acceleration_context );
+        this->d_alloc.deallocate( this->d_SendRecv, this->d_numRemote, stream );
         this->d_SendRecv = nullptr;
     }
     if ( this->d_localRemote ) {
-        this->d_size_t_alloc.deallocate(
-            this->d_localRemote, this->d_numRemote, d_acceleration_context );
+        this->d_size_t_alloc.deallocate( this->d_localRemote, this->d_numRemote, stream );
         this->d_localRemote = nullptr;
     }
     if ( this->d_ReceiveDOFList ) {
-        this->d_size_t_alloc.deallocate(
-            this->d_ReceiveDOFList, this->d_ghostSize, d_acceleration_context );
+        this->d_size_t_alloc.deallocate( this->d_ReceiveDOFList, this->d_ghostSize, stream );
         this->d_ReceiveDOFList = nullptr;
     }
     this->d_ghostSize = 0;
@@ -126,22 +127,22 @@ void GhostDataHelper<TYPE, Allocator>::deallocateBuffers()
 
     const int size = std::max( this->d_CommList ? this->d_CommList->getComm().getSize() : 1, 1 );
     if ( d_sendSizes ) {
-        d_int_alloc.deallocate( d_sendSizes, size, d_acceleration_context );
+        d_int_alloc.deallocate( d_sendSizes, size, stream );
         d_sendSizes = nullptr;
     }
     if ( d_recvSizes ) {
-        d_int_alloc.deallocate( d_recvSizes, size, d_acceleration_context );
+        d_int_alloc.deallocate( d_recvSizes, size, stream );
         d_recvSizes = nullptr;
     }
     if ( d_sendDisplacements ) {
-        d_int_alloc.deallocate( d_sendDisplacements, size, d_acceleration_context );
+        d_int_alloc.deallocate( d_sendDisplacements, size, stream );
         d_sendDisplacements = nullptr;
     }
     if ( d_recvDisplacements ) {
-        d_int_alloc.deallocate( d_recvDisplacements, size, d_acceleration_context );
+        d_int_alloc.deallocate( d_recvDisplacements, size, stream );
         d_recvDisplacements = nullptr;
     }
-    d_acceleration_context.synchronizeStream();
+    deviceStreamSynchronize( stream );
 }
 
 template<class TYPE, class Allocator>
@@ -149,6 +150,8 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     std::shared_ptr<CommunicationList> commList )
 {
     PROFILE( "GhostDataHelper::setCommunicationList" );
+
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
 
     // Verify CommunicationList and vector sizes
     AMP_ASSERT( commList );
@@ -179,7 +182,7 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     for ( auto size : sendSizes )
         N += size;
     if ( N > 0 )
-        this->d_SendRecv = d_alloc.allocate( N, d_acceleration_context );
+        this->d_SendRecv = d_alloc.allocate( N, stream );
 
     // Get a list of the local dofs that are remote
     auto replicatedVec = d_CommList->getReplicatedIDList();
@@ -192,14 +195,14 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     }
 
     if ( N > 0 ) {
-        this->d_localRemote = d_size_t_alloc.allocate( N, d_acceleration_context );
+        this->d_localRemote = d_size_t_alloc.allocate( N, stream );
         Utilities::Algorithms::copy_n( d_localRemote,
                                        d_memory_location,
                                        replicatedVec.data(),
                                        Utilities::MemoryType::host,
                                        d_numRemote,
-                                       d_acceleration_context );
-        d_acceleration_context.synchronizeStream();
+                                       stream );
+        deviceStreamSynchronize( stream );
     }
 
     const auto &recvSizes = d_CommList->getReceiveSizes();
@@ -209,35 +212,35 @@ void GhostDataHelper<TYPE, Allocator>::setCommunicationList(
     // cache some comm list data used by MPI routines
     if ( hasGhosts() ) {
         const int size      = std::max( this->d_CommList->getComm().getSize(), 1 );
-        d_sendSizes         = d_int_alloc.allocate( size, d_acceleration_context );
-        d_recvSizes         = d_int_alloc.allocate( size, d_acceleration_context );
-        d_sendDisplacements = d_int_alloc.allocate( size, d_acceleration_context );
-        d_recvDisplacements = d_int_alloc.allocate( size, d_acceleration_context );
+        d_sendSizes         = d_int_alloc.allocate( size, stream );
+        d_recvSizes         = d_int_alloc.allocate( size, stream );
+        d_sendDisplacements = d_int_alloc.allocate( size, stream );
+        d_recvDisplacements = d_int_alloc.allocate( size, stream );
         Utilities::Algorithms::copy_n( d_sendSizes,
                                        d_memory_location,
                                        sendSizes.data(),
                                        Utilities::MemoryType::host,
                                        size,
-                                       d_acceleration_context );
+                                       stream );
         Utilities::Algorithms::copy_n( d_recvSizes,
                                        d_memory_location,
                                        recvSizes.data(),
                                        Utilities::MemoryType::host,
                                        size,
-                                       d_acceleration_context );
+                                       stream );
         Utilities::Algorithms::copy_n( d_sendDisplacements,
                                        d_memory_location,
                                        sendDisp.data(),
                                        Utilities::MemoryType::host,
                                        size,
-                                       d_acceleration_context );
+                                       stream );
         Utilities::Algorithms::copy_n( d_recvDisplacements,
                                        d_memory_location,
                                        recvDisp.data(),
                                        Utilities::MemoryType::host,
                                        size,
-                                       d_acceleration_context );
-        d_acceleration_context.synchronizeStream();
+                                       stream );
+        deviceStreamSynchronize( stream );
     }
 }
 
@@ -277,14 +280,16 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
 {
     PROFILE( "GhostDataHelper::makeConsistent" );
 
-    d_acceleration_context.synchronizeStream();
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
+
+    deviceStreamSynchronize( stream );
 
     if ( d_CommList ) {
         if ( t == ScatterType::CONSISTENT_ADD ) {
             AMP_ASSERT( *d_UpdateState != UpdateState::SETTING );
             scatter_add();
             Utilities::Algorithms::zero_n(
-                this->d_AddBuffer, this->d_ghostSize, d_memory_location, d_acceleration_context );
+                this->d_AddBuffer, this->d_ghostSize, d_memory_location, stream );
         }
         *d_UpdateState = UpdateState::SETTING;
         scatter_set();
@@ -292,7 +297,6 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
     }
     this->setUpdateStatus( UpdateState::UNCHANGED );
 }
-
 
 /************************************************************************
  * set/recv data                                                         *
@@ -331,7 +335,8 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
 #endif
     }
 
-    d_acceleration_context.synchronizeStream();
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
+    deviceStreamSynchronize( stream );
 
     // post all receives
     std::vector<AMP_MPI::Request> recv_request;
@@ -354,7 +359,8 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
                                            d_SendRecv,
                                            d_memory_location,
                                            d_numRemote,
-                                           d_acceleration_context );
+                                           stream );
+            deviceStreamSynchronize( stream );
 #endif
         }
     }
@@ -381,10 +387,10 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
                                        ghosts_p,
                                        Utilities::MemoryType::host,
                                        this->d_ghostSize,
-                                       d_acceleration_context );
+                                       stream );
 #endif
     }
-    d_acceleration_context.synchronizeStream();
+    deviceStreamSynchronize( stream );
 
     // wait all sends
     comm.waitAll( static_cast<int>( send_request.size() ), send_request.data() );
@@ -414,6 +420,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
     int *recv_sizes_p = const_cast<int *>( recvSizes.data() );
     int *recv_disp_p  = const_cast<int *>( recvDisp.data() );
 
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
     if constexpr ( d_memory_location == Utilities::MemoryType::managed ) {
 
         // we could prefetch to host here when not using gpu aware mpi
@@ -438,19 +445,19 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
                                        d_SendRecv,
                                        d_memory_location,
                                        this->d_numRemote,
-                                       d_acceleration_context );
+                                       stream );
         Utilities::Algorithms::copy_n( d_AddBuffer_h.data(),
                                        Utilities::MemoryType::host,
                                        d_AddBuffer,
                                        d_memory_location,
                                        this->d_ghostSize,
-                                       d_acceleration_context );
+                                       stream );
         send_recv_p = d_SendRecv_h.data();
         ghost_add_p = d_AddBuffer_h.data();
 #endif
     }
 
-    d_acceleration_context.synchronizeStream();
+    deviceStreamSynchronize( stream );
 
     comm.allToAll<TYPE>(
         ghost_add_p, recv_sizes_p, recv_disp_p, send_recv_p, send_sizes_p, send_disp_p, true );
@@ -464,11 +471,11 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
                                        d_SendRecv_h.data(),
                                        Utilities::MemoryType::host,
                                        this->d_numRemote,
-                                       d_acceleration_context );
+                                       stream );
 #endif
     }
 
-    d_acceleration_context.synchronizeStream();
+    deviceStreamSynchronize( stream );
 
     // Unpack the add buffers
     if ( d_localRemote != nullptr )
@@ -494,12 +501,14 @@ void GhostDataHelper<TYPE, Allocator>::fillGhosts( const Scalar &scalar )
 {
     PROFILE( "GhostDataHelper::fillGhosts" );
 
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
+
     const auto y = static_cast<TYPE>( scalar );
     Utilities::Algorithms::fill_n(
-        this->d_Ghosts, this->d_ghostSize, y, d_memory_location, d_acceleration_context );
+        this->d_Ghosts, this->d_ghostSize, y, d_memory_location, stream );
     Utilities::Algorithms::zero_n(
-        this->d_AddBuffer, this->d_ghostSize, d_memory_location, d_acceleration_context );
-    d_acceleration_context.synchronizeStream();
+        this->d_AddBuffer, this->d_ghostSize, d_memory_location, stream );
+    deviceStreamSynchronize( stream );
 }
 
 
@@ -669,20 +678,22 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals,
 {
     PROFILE( "GhostDataHelper::getAllGhostValues" );
 
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
+
     if ( id == getTypeID<TYPE>() ) {
         auto data = static_cast<TYPE *>( vals );
         Utilities::Algorithms::copy_n(
-            data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize, d_acceleration_context );
+            data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize, stream );
     } else if ( id == getTypeID<float>() && std::is_same_v<TYPE, double> ) {
         auto data       = static_cast<float *>( vals );
         auto dbl_ghosts = reinterpret_cast<const double *>( d_Ghosts );
         Utilities::Algorithms::copyCast(
-            data, buf_loc, dbl_ghosts, d_memory_location, d_ghostSize, d_acceleration_context );
+            data, buf_loc, dbl_ghosts, d_memory_location, d_ghostSize, stream );
     } else if ( id == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
         auto data       = static_cast<double *>( vals );
         auto flt_ghosts = reinterpret_cast<const float *>( d_Ghosts );
         Utilities::Algorithms::copyCast(
-            data, buf_loc, flt_ghosts, d_memory_location, d_ghostSize, d_acceleration_context );
+            data, buf_loc, flt_ghosts, d_memory_location, d_ghostSize, stream );
     } else {
         AMP_ERROR( "Ghosts copy with mismatched types only supports float/double combinations" );
     }

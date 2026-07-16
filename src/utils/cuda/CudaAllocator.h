@@ -30,8 +30,6 @@ public:
 
     T *allocate( size_t n, cudaStream_t ) { return allocate( n ); }
 
-    T *allocate( size_t n, AMP::Utilities::AccelerationContext & ) { return allocate( n ); }
-
     void deallocate( T *p, size_t )
     {
         auto err = cudaFreeHost( p );
@@ -39,8 +37,6 @@ public:
     }
 
     void deallocate( T *p, size_t n, cudaStream_t ) { deallocate( p, n ); }
-
-    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext & ) { deallocate( p, n ); }
 };
 
 /**
@@ -69,11 +65,6 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        return allocate( n, ctx.getStream() );
-    }
-
     void deallocate( T *p, size_t )
     {
         auto err = cudaFree( p );
@@ -84,11 +75,6 @@ public:
     {
         auto err = cudaFreeAsync( p, stream );
         checkCudaErrors( err );
-    }
-
-    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        deallocate( p, n, ctx.getStream() );
     }
 };
 
@@ -124,11 +110,6 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        return allocate( n, ctx.getStream() );
-    }
-
     void deallocate( T *p, size_t )
     {
         auto err = cudaFree( p );
@@ -139,11 +120,6 @@ public:
     {
         auto err = cudaFree( p );
         checkCudaErrors( err );
-    }
-
-    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        deallocate( p, n, ctx.getStream() );
     }
 };
 

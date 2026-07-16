@@ -1,5 +1,6 @@
 #include "AMP/utils/KokkosManager.h"
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/device/Device.h"
 
@@ -59,6 +60,7 @@ void initializeKokkos( int &argc_in, char *argv_in[], const AMPManagerProperties
 }
 void finalizeKokkos()
 {
+    AccelerationContext::default_context.freeKokkosExec();
     if ( AMP_CalledKokkosInit && !Kokkos::is_finalized() )
         Kokkos::finalize();
 }

@@ -44,27 +44,27 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
     auto A_diag        = A_data->getDiagMatrix();
-    auto &acc_ctx      = A_data->d_acceleration_context;
+    auto stream        = A_data->d_acceleration_context.getStream();
 
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {
         auto S = compute_soc<classical_strength<norm::abs>>(
-            csr_view( *A ), acc_ctx.getStream(), d_strength_threshold );
+            csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "symagg_abs" ) {
-        auto S = compute_soc<symagg_strength<norm::abs>>(
-            csr_view( *A ), acc_ctx.getStream(), d_strength_threshold );
+        auto S =
+            compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "symagg_min" ) {
-        auto S = compute_soc<symagg_strength<norm::min>>(
-            csr_view( *A ), acc_ctx.getStream(), d_strength_threshold );
+        auto S =
+            compute_soc<symagg_strength<norm::min>>( csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else {
         if ( d_strength_measure != "classical_min" ) {
             AMP_WARN_ONCE( "Unrecognized strength measure, reverting to classical_min" );
         }
         auto S = compute_soc<classical_strength<norm::min>>(
-            csr_view( *A ), acc_ctx.getStream(), d_strength_threshold );
+            csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
 
@@ -73,7 +73,7 @@ int SimpleAggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRM
     auto [Am_rs, Am_cols, Am_cols_loc, Am_coeffs] = A_masked->getDataFields();
 
     // fill initial ids with -1's to mark as not associated
-    AMP::Utilities::Algorithms::fill_n( agg_ids, A_nrows, -1, Config::mem_loc, acc_ctx );
+    AMP::Utilities::Algorithms::fill_n( agg_ids, A_nrows, -1, Config::mem_loc, stream );
 
     // Create temporary storage for aggregate sizes
     std::vector<lidx_t> agg_size( A_nrows, -1 );

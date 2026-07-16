@@ -2,6 +2,7 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/KokkosManager.h"
 #include "AMP/utils/Utilities.h"
 
@@ -66,6 +67,14 @@ std::vector<std::function<void()>> AMPManager::d_atShutdown;
 static AMP_MPI comm_world = AMP::AMP_MPI( AMP_COMM_NULL );
 const AMP_MPI &AMPManager::getCommWorld() { return comm_world; }
 void AMPManager::setCommWorld( const AMP::AMP_MPI &comm ) { comm_world = comm; }
+
+/****************************************************************************
+ *  Get the default GPU compute stream, nullptr on host-only builds          *
+ ****************************************************************************/
+AMP::Utilities::ComputeStream AMPManager::getDefaultComputeStream()
+{
+    return AMP::Utilities::AccelerationContext::default_context.getStream();
+}
 
 /****************************************************************************
  * Functions to count resources                                              *
@@ -151,8 +160,6 @@ void AMPManager::startup( int &argc, char *argv[], const AMPManagerProperties &p
     start_OpenMP();
     // Initialize Kokkos
     AMP::Utilities::initializeKokkos( argc, argv, d_properties );
-    // setup default compute stream and affiliated Kokkos execution space
-    setupAccelerationContext();
     // Initialize Hypre
     double hypre_time = start_HYPRE();
     // Initialize PETSc
@@ -226,6 +233,8 @@ void AMPManager::shutdown()
                 static_cast<int>( AMP_MPI::MPI_Comm_created() ),
                 static_cast<int>( AMP_MPI::MPI_Comm_destroyed() ) );
     }
+    // free device compute stream
+    AMP::Utilities::AccelerationContext::default_context.freeStream();
     // Clear input arguments
     for ( int i = 0; i < d_argc; i++ )
         delete[] d_argv[i];
@@ -323,30 +332,6 @@ double AMPManager::bindDevices()
         deviceBind( device_id ); // Map MPI-process to a GPU
         deviceSynchronize();
     }
-#endif
-    return getDuration( start );
-}
-
-double AMPManager::setupAccelerationContext()
-{
-    auto start = std::chrono::steady_clock::now();
-#ifdef AMP_USE_DEVICE
-    if ( d_properties.initialize_device ) {
-        // GPU-enabled build, create a stream for AMP to use by default,
-        // give it to the AMP default context, and let that context own it
-        Utilities::ComputeStream stream;
-        deviceStreamCreate( &stream );
-        d_properties.acceleration_context.setComputeStream( stream, true );
-
-        void *tmp;
-        deviceMallocAsync( &tmp, 10, stream );
-        deviceFreeAsync( tmp, stream );
-        deviceStreamSynchronize( stream );
-    }
-#else
-    // host only build, simply pass nullptr for stream and trigger
-    // internal construction of Kokkos execution spaces
-    d_properties.acceleration_context.setComputeStream( nullptr, false );
 #endif
     return getDuration( start );
 }

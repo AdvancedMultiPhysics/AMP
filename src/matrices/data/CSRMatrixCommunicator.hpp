@@ -21,8 +21,6 @@ void CSRMatrixCommunicator<Config>::sendMatrices(
         return;
     }
 
-    AMP_DEBUG_ASSERT( d_tag_test >= 0 && d_tag_row >= 0 && d_tag_col >= 0 && d_tag_coeff >= 0 );
-
     // At present we allow that the held communication list refer to a
     // super-set of the communications that need to be sent. First count
     // how many sources we actually expect

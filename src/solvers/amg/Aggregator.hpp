@@ -2,6 +2,8 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/CSRVisit.h"
+#include "AMP/matrices/data/CSRLocalMatrixData.h"
+#include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/amg/Aggregator.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
@@ -170,7 +172,7 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
     // non-zeros only in diag block and at most one per row
     auto diag_nnz = A_diag->makeLidxArray( A_nrows );
     auto offd_nnz = A_diag->makeLidxArray( A_nrows );
-    Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc, acc_ctx );
+    Utilities::Algorithms::zero_n( offd_nnz.get(), A_nrows, Config::mem_loc, acc_ctx.getStream() );
     if constexpr ( !Config::device_accessible ) {
         std::transform( agg_ids.get(),
                         agg_ids.get() + A_nrows,

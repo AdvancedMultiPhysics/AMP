@@ -4,8 +4,6 @@
 #include "AMP/matrices/CSRMatrix.h"
 #include "AMP/matrices/Matrix.h"
 #include "AMP/matrices/MatrixParameters.h"
-#include "AMP/matrices/data/CSRLocalMatrixData.h"
-#include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/amg/AggregationSettings.h"
 
 #include <memory>

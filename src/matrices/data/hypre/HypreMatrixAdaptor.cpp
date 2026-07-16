@@ -87,8 +87,8 @@ HypreMatrixAdaptor::HypreMatrixAdaptor( std::shared_ptr<MatrixData> matrixData )
 
 HypreMatrixAdaptor::~HypreMatrixAdaptor() { HYPRE_IJMatrixDestroy( d_matrix ); }
 
-template<class Config>
-void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Config>> csrData )
+template<class csr_data_ptr>
+void HypreMatrixAdaptor::initializeHypreMatrix( csr_data_ptr csrData )
 {
     // The hypre vs amp ownership rules require elaboration.
     // We set the internal owns_data flags on the diag and offd
@@ -106,7 +106,8 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
 
     PROFILE( "HypreMatrixAdaptor::initializeHypreMatrix" );
 
-    using alloc_t          = typename Config::allocator_type;
+    using csr_data_t       = typename csr_data_ptr::element_type;
+    using alloc_t          = typename csr_data_t::allocator_type;
     const auto csr_mem_loc = AMP::Utilities::getAllocatorMemoryType<alloc_t>();
 
     // Set the hypre memory space, matching the space of the input matrix
@@ -196,15 +197,18 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
 
     // Fill in the ->i fields of diag and off_diag
     AMP::Utilities::Algorithms::copy_n(
-        diag->i, rs_d, nrows + 1, csr_mem_loc, csrData->d_acceleration_context );
+        diag->i, rs_d, nrows + 1, csr_mem_loc, csrData->d_acceleration_context.getStream() );
     if ( haveOffd ) {
-        AMP::Utilities::Algorithms::copy_n(
-            off_diag->i, rs_od, nrows + 1, csr_mem_loc, csrData->d_acceleration_context );
+        AMP::Utilities::Algorithms::copy_n( off_diag->i,
+                                            rs_od,
+                                            nrows + 1,
+                                            csr_mem_loc,
+                                            csrData->d_acceleration_context.getStream() );
     } else {
         AMP::Utilities::Algorithms::zero_n(
-            off_diag->i, nrows + 1, csr_mem_loc, csrData->d_acceleration_context );
+            off_diag->i, nrows + 1, csr_mem_loc, csrData->d_acceleration_context.getStream() );
     }
-    if constexpr ( Config::device_accessible ) {
+    if constexpr ( csr_data_t::device_accessible ) {
         csrData->d_acceleration_context.synchronizeStream();
     }
 
@@ -239,7 +243,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
                                               colMap,
                                               csr_mem_loc,
                                               off_diag->num_cols,
-                                              csrData->d_acceleration_context );
+                                              csrData->d_acceleration_context.getStream() );
 
         // and do device map if needed
         if ( memory_location == HYPRE_MEMORY_DEVICE ) {
@@ -250,7 +254,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
                                                   colMap,
                                                   csr_mem_loc,
                                                   off_diag->num_cols,
-                                                  csrData->d_acceleration_context );
+                                                  csrData->d_acceleration_context.getStream() );
         }
     }
 
@@ -258,7 +262,7 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
     hypre_CSRMatrixSetRownnz( diag );
     hypre_CSRMatrixSetRownnz( off_diag );
 
-    if constexpr ( Config::device_accessible ) {
+    if constexpr ( csr_data_t::device_accessible ) {
         csrData->d_acceleration_context.synchronizeStream();
     }
 

@@ -51,7 +51,8 @@ void test_space_n_precision_migration( std::shared_ptr<AMP::LinearAlgebra::Matri
         AMP::pout << "1 Norm " << yNorm << ", number of rows " << mat_migrate->numGlobalRows()
                   << std::endl;
         std::string space_name( AMP::Utilities::getString( Config::mem_loc ) );
-        ut->failure( "Migrate to " + space_name + ": Fails 1 norm test with pseudo Laplacian" );
+        ut->failure( "Precision + Migrate to " + space_name +
+                     ": Fails 1 norm test with pseudo Laplacian" );
     }
 }
 

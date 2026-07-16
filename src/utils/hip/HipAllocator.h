@@ -1,7 +1,6 @@
 #ifndef included_AMP_GPUDevAllocator
 #define included_AMP_GPUDevAllocator
 
-#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/hip/Helper_Hip.h"
 
@@ -31,8 +30,6 @@ public:
 
     T *allocate( size_t n, hipStream_t ) { return allocate( n ); }
 
-    T *allocate( size_t n, AMP::Utilities::AccelerationContext & ) { return allocate( n ); }
-
     void deallocate( T *p, size_t )
     {
         auto err = hipFreeHost( (void *) p );
@@ -40,8 +37,6 @@ public:
     }
 
     void deallocate( T *p, size_t n, hipStream_t ) { deallocate( p, n ); }
-
-    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext & ) { deallocate( p, n ); }
 };
 
 /**
@@ -71,11 +66,6 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        return allocate( n, ctx.getStream() );
-    }
-
     void deallocate( T *p, size_t )
     {
         AMP_WARNING( "non-stream aware: dev dealloc" );
@@ -88,11 +78,6 @@ public:
         AMP_ASSERT( p );
         auto err = hipFreeAsync( (void *) p, stream );
         checkHipErrors( err );
-    }
-
-    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        deallocate( p, n, ctx.getStream() );
     }
 };
 
@@ -127,11 +112,6 @@ public:
         return ptr;
     }
 
-    T *allocate( size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        return allocate( n, ctx.getStream() );
-    }
-
     void deallocate( T *p, size_t )
     {
         AMP_WARNING( "non-stream aware: managed dealloc" );
@@ -143,11 +123,6 @@ public:
     {
         auto err = hipFree( (void *) p );
         checkHipErrors( err );
-    }
-
-    void deallocate( T *p, size_t n, AMP::Utilities::AccelerationContext &ctx )
-    {
-        deallocate( p, n, ctx.getStream() );
     }
 };
 

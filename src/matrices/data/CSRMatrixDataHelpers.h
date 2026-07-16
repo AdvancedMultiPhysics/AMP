@@ -1,7 +1,7 @@
 #ifndef included_AMP_CSRMatrixDataHelpers_h
 #define included_AMP_CSRMatrixDataHelpers_h
 
-#include "AMP/utils/AccelerationContext.h"
+#include "AMP/utils/device/Device.h"
 
 namespace AMP {
 namespace LinearAlgebra {
@@ -18,24 +18,24 @@ struct CSRMatrixDataHelpers {
                                  scalar_t *coeffs,
                                  lidx_t num_rows,
                                  gidx_t first_col,
-                                 AMP::Utilities::AccelerationContext &ctx );
+                                 const AMP::Utilities::ComputeStream stream );
     static void SortColumnsOffd( lidx_t *row_starts,
                                  gidx_t *cols,
                                  scalar_t *coeffs,
                                  lidx_t num_rows,
-                                 AMP::Utilities::AccelerationContext &ctx );
+                                 const AMP::Utilities::ComputeStream stream );
 
     static void GlobalToLocalDiag( gidx_t *cols,
                                    lidx_t nnz,
                                    gidx_t first_col,
                                    lidx_t *cols_loc,
-                                   AMP::Utilities::AccelerationContext &ctx );
+                                   const AMP::Utilities::ComputeStream stream );
     static void GlobalToLocalOffd( gidx_t *cols,
                                    lidx_t nnz,
                                    gidx_t *cols_unq,
                                    lidx_t ncols_unq,
                                    lidx_t *cols_loc,
-                                   AMP::Utilities::AccelerationContext &ctx );
+                                   const AMP::Utilities::ComputeStream stream );
 
     static void TransposeDiag( const lidx_t *in_row_starts,
                                const lidx_t *in_cols_loc,
@@ -50,7 +50,7 @@ struct CSRMatrixDataHelpers {
                                scalar_t *out_coeffs,
                                lidx_t *counters,
                                lidx_t *reduce_space,
-                               AMP::Utilities::AccelerationContext &ctx );
+                               const AMP::Utilities::ComputeStream stream );
 
     static void TransposeOffd( const lidx_t *in_row_starts,
                                const gidx_t *in_cols,
@@ -66,7 +66,7 @@ struct CSRMatrixDataHelpers {
                                scalar_t *out_coeffs,
                                lidx_t *counters,
                                lidx_t *reduce_space,
-                               AMP::Utilities::AccelerationContext &ctx );
+                               const AMP::Utilities::ComputeStream stream );
 
     static void RowSubsetCountNNZ( const gidx_t *rows,
                                    const lidx_t num_rows,
@@ -74,7 +74,7 @@ struct CSRMatrixDataHelpers {
                                    const lidx_t *diag_row_starts,
                                    const lidx_t *offd_row_starts,
                                    lidx_t *counts,
-                                   AMP::Utilities::AccelerationContext &ctx );
+                                   const AMP::Utilities::ComputeStream stream );
 
     static void RowSubsetFill( const gidx_t *rows,
                                const lidx_t num_rows,
@@ -90,7 +90,7 @@ struct CSRMatrixDataHelpers {
                                const lidx_t *out_row_starts,
                                gidx_t *out_cols,
                                scalar_t *out_coeffs,
-                               AMP::Utilities::AccelerationContext &ctx );
+                               const AMP::Utilities::ComputeStream stream );
 
     static void ColSubsetCountNNZ( const gidx_t idx_lo,
                                    const gidx_t idx_up,
@@ -102,7 +102,7 @@ struct CSRMatrixDataHelpers {
                                    const gidx_t *offd_cols_unq,
                                    const lidx_t num_rows,
                                    lidx_t *out_row_starts,
-                                   AMP::Utilities::AccelerationContext &ctx );
+                                   const AMP::Utilities::ComputeStream stream );
 
     static void ColSubsetFill( const gidx_t idx_lo,
                                const gidx_t idx_up,
@@ -118,12 +118,12 @@ struct CSRMatrixDataHelpers {
                                lidx_t *out_row_starts,
                                gidx_t *out_cols,
                                scalar_t *out_coeffs,
-                               AMP::Utilities::AccelerationContext &ctx );
+                               const AMP::Utilities::ComputeStream stream );
 
     static void ConcatHorizontalCountNNZ( const lidx_t *in_row_starts,
                                           const lidx_t num_rows,
                                           lidx_t *out_row_starts,
-                                          AMP::Utilities::AccelerationContext &ctx );
+                                          const AMP::Utilities::ComputeStream stream );
 
     static void ConcatHorizontalFill( const lidx_t *in_row_starts,
                                       const gidx_t *in_cols,
@@ -133,7 +133,7 @@ struct CSRMatrixDataHelpers {
                                       lidx_t *row_nnz_ctrs,
                                       gidx_t *out_cols,
                                       scalar_t *out_coeffs,
-                                      AMP::Utilities::AccelerationContext &ctx );
+                                      const AMP::Utilities::ComputeStream stream );
 
     static void ConcatVerticalCountNNZ( const lidx_t *row_starts,
                                         const gidx_t *cols,
@@ -142,7 +142,7 @@ struct CSRMatrixDataHelpers {
                                         const gidx_t last_col,
                                         const bool keep_inside,
                                         lidx_t *counts,
-                                        AMP::Utilities::AccelerationContext &ctx );
+                                        const AMP::Utilities::ComputeStream stream );
 
     static void ConcatVerticalFill( const lidx_t *in_row_starts,
                                     const gidx_t *in_cols,
@@ -155,14 +155,14 @@ struct CSRMatrixDataHelpers {
                                     const lidx_t *out_row_starts,
                                     gidx_t *out_cols,
                                     scalar_t *out_coeffs,
-                                    AMP::Utilities::AccelerationContext &ctx );
+                                    const AMP::Utilities::ComputeStream stream );
 
     static void MaskCountNNZ( const lidx_t *in_row_starts,
                               const mask_t *mask,
                               const bool keep_first,
                               const lidx_t num_rows,
                               lidx_t *out_row_starts,
-                              AMP::Utilities::AccelerationContext &ctx );
+                              const AMP::Utilities::ComputeStream stream );
 
     static void MaskFillDiag( const lidx_t *in_row_starts,
                               const lidx_t *in_cols_loc,
@@ -173,7 +173,7 @@ struct CSRMatrixDataHelpers {
                               const lidx_t *out_row_starts,
                               lidx_t *out_cols_loc,
                               scalar_t *out_coeffs,
-                              AMP::Utilities::AccelerationContext &ctx );
+                              const AMP::Utilities::ComputeStream stream );
 
     static lidx_t RemoveRangeCountDel( const lidx_t *row_starts,
                                        const scalar_t *coeffs,
@@ -181,13 +181,13 @@ struct CSRMatrixDataHelpers {
                                        const scalar_t bnd_lo,
                                        const scalar_t bnd_up,
                                        lidx_t *del_per_row,
-                                       AMP::Utilities::AccelerationContext &ctx );
+                                       const AMP::Utilities::ComputeStream stream );
 
     static void RemoveRangeUpdateRowStart( const lidx_t *in_row_starts,
                                            const lidx_t *del_per_row,
                                            const lidx_t num_rows,
                                            lidx_t *out_row_starts,
-                                           AMP::Utilities::AccelerationContext &ctx );
+                                           const AMP::Utilities::ComputeStream stream );
 
     static void RemoveRangeFillDiag( const lidx_t *old_row_starts,
                                      const lidx_t *old_cols_loc,
@@ -198,7 +198,7 @@ struct CSRMatrixDataHelpers {
                                      const lidx_t *new_row_starts,
                                      lidx_t *new_cols_loc,
                                      scalar_t *new_coeffs,
-                                     AMP::Utilities::AccelerationContext &ctx );
+                                     const AMP::Utilities::ComputeStream stream );
 
     static void RemoveRangeFillOffd( const lidx_t *old_row_starts,
                                      const lidx_t *old_cols_loc,
@@ -210,7 +210,7 @@ struct CSRMatrixDataHelpers {
                                      const lidx_t *new_row_starts,
                                      gidx_t *new_cols,
                                      scalar_t *new_coeffs,
-                                     AMP::Utilities::AccelerationContext &ctx );
+                                     const AMP::Utilities::ComputeStream stream );
 };
 
 } // namespace LinearAlgebra

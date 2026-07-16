@@ -29,7 +29,13 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::mult(
     {
         PROFILE( "CSRLocalMatrixOperationsDevice::mult (local)" );
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::mult(
-            row_starts_d, cols_loc_d, coeffs_d, nRows, in, out, A->d_acceleration_context );
+            row_starts_d,
+            cols_loc_d,
+            coeffs_d,
+            nRows,
+            in,
+            out,
+            A->d_acceleration_context.getStream() );
     }
 }
 
@@ -52,7 +58,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::scale(
     const auto tnnz_d = A->numberOfNonZeros();
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::scale(
-        tnnz_d, coeffs_d, alpha, A->d_acceleration_context );
+        tnnz_d, coeffs_d, alpha, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -67,7 +73,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::axpy(
 
     {
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::axpy(
-            tnnz, alpha, coeffs_d_x, coeffs_d_y, Y->d_acceleration_context );
+            tnnz, alpha, coeffs_d_x, coeffs_d_y, Y->d_acceleration_context.getStream() );
     }
 }
 
@@ -80,7 +86,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setScalar(
     const auto tnnz_d = A->numberOfNonZeros();
 
     AMP::Utilities::Algorithms::fill_n(
-        coeffs_d, tnnz_d, alpha, Config::mem_loc, A->d_acceleration_context );
+        coeffs_d, tnnz_d, alpha, Config::mem_loc, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -98,7 +104,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setDiagonal(
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setDiagonal(
-        row_starts_d, coeffs_d, nRows, in, A->d_acceleration_context );
+        row_starts_d, coeffs_d, nRows, in, A->d_acceleration_context.getStream() );
 }
 
 
@@ -110,7 +116,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::extractDiagonal(
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::extractDiagonal(
-        row_starts_d, coeffs_d, nRows, buf, A->d_acceleration_context );
+        row_starts_d, coeffs_d, nRows, buf, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -123,7 +129,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setIdentity(
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setIdentity(
-        row_starts_d, coeffs_d, nRows, A->d_acceleration_context );
+        row_starts_d, coeffs_d, nRows, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -134,7 +140,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::LinfNorm(
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::LinfNorm(
-        nRows, coeffs_d, row_starts_d, rowSums, A->d_acceleration_context );
+        nRows, coeffs_d, row_starts_d, rowSums, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -148,7 +154,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copy(
 
     {
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::copy(
-            tnnz, coeffs_d_x, coeffs_d_y, Y->d_acceleration_context );
+            tnnz, coeffs_d_x, coeffs_d_y, Y->d_acceleration_context.getStream() );
     }
 }
 

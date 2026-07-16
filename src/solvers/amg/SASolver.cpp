@@ -3,6 +3,9 @@
 
 #include "ProfilerApp.h"
 
+#include "AMP/matrices/CSRMatrix.h"
+#include "AMP/matrices/data/CSRLocalMatrixData.h"
+#include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/amg/Aggregator.hpp"
 #include "AMP/solvers/amg/MIS2Aggregator.hpp"
 #include "AMP/solvers/amg/Relaxation.hpp"

@@ -33,7 +33,6 @@ public:
     void setToScalar( const Scalar &, VectorData & ) override;
     void setRandomValues( VectorData & ) override;
     void copy( const VectorData &, VectorData & ) override;
-    void copyCast( const VectorData &x, VectorData &z ) override;
     void scale( const Scalar &, const VectorData &, VectorData & ) override;
     void scale( const Scalar &, VectorData & ) override;
     void add( const VectorData &, const VectorData &, VectorData & ) override;

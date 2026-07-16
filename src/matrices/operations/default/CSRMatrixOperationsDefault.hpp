@@ -2,6 +2,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
@@ -376,7 +377,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
     AMP::Utilities::Algorithms::zero_n(
-        rawVecData, nRows, Config::mem_loc, A.d_acceleration_context );
+        rawVecData, nRows, Config::mem_loc, AMP::AMPManager::getDefaultComputeStream() );
 
     d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
@@ -408,7 +409,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
     AMP::Utilities::Algorithms::zero_n(
-        rawVecData, nRows, Config::mem_loc, A.d_acceleration_context );
+        rawVecData, nRows, Config::mem_loc, AMP::AMPManager::getDefaultComputeStream() );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {

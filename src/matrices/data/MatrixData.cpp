@@ -11,17 +11,13 @@ namespace AMP::LinearAlgebra {
 /********************************************************
  * Constructors/Destructor                               *
  ********************************************************/
-MatrixData::MatrixData()
-    : d_acceleration_context( AMP::AMPManager::getDefaultAccelerationContext() ),
-      d_hash( reinterpret_cast<uint64_t>( this ) )
+MatrixData::MatrixData() : d_hash( reinterpret_cast<uint64_t>( this ) )
 {
     AMPManager::incrementResource( "MatrixData" );
 }
 
 MatrixData::MatrixData( std::shared_ptr<MatrixParametersBase> params )
-    : d_pParameters( params ),
-      d_acceleration_context( AMP::AMPManager::getDefaultAccelerationContext() ),
-      d_hash( reinterpret_cast<uint64_t>( this ) )
+    : d_pParameters( params ), d_hash( reinterpret_cast<uint64_t>( this ) )
 {
     AMPManager::incrementResource( "MatrixData" );
 }
@@ -101,7 +97,6 @@ void MatrixData::writeRestart( int64_t fid ) const
 }
 
 MatrixData::MatrixData( int64_t fid, AMP::IO::RestartManager *manager )
-    : d_acceleration_context( AMP::AMPManager::getDefaultAccelerationContext() )
 {
     uint64_t paramsID;
     IO::readHDF5( fid, "paramsID", paramsID );

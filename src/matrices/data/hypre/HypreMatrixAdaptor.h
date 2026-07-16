@@ -1,7 +1,6 @@
 #ifndef INCLUDED_HYPRE_MATRIX_ADAPTOR_H
 #define INCLUDED_HYPRE_MATRIX_ADAPTOR_H
 
-#include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
 
 #include "HYPRE.h"
@@ -30,8 +29,8 @@ public:
 
 private:
     //! Main internal routine for initializing the matrix
-    template<class Config>
-    void initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Config>> csrData );
+    template<class csr_data_ptr>
+    void initializeHypreMatrix( csr_data_ptr csrData );
 
     //! hypre IJ matrix that this class wraps
     HYPRE_IJMatrix d_matrix;

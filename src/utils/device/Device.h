@@ -43,6 +43,8 @@
 
 #else
 
+    #define deviceStreamSynchronize( STREAM )
+
 namespace AMP::Utilities {
 // helpers for hip and cuda give a compute stream type
 // with no device support just stub one in

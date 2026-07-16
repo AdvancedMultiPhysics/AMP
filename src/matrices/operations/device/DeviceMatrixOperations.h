@@ -1,7 +1,7 @@
 #ifndef included_DeviceMatrixOperationsHelpers_H_
 #define included_DeviceMatrixOperationsHelpers_H_
 
-#include "AMP/utils/AccelerationContext.h"
+#include "AMP/utils/device/Device.h"
 
 #include <cstddef>
 
@@ -17,38 +17,39 @@ struct DeviceMatrixOperations {
                       const size_t N,
                       const S *in,
                       S *out,
-                      AMP::Utilities::AccelerationContext &ctx );
+                      const AMP::Utilities::ComputeStream stream );
 
     static void
-    scale( const size_t N, S *coeffs, const S alpha, AMP::Utilities::AccelerationContext &ctx );
+    scale( const size_t N, S *coeffs, const S alpha, const AMP::Utilities::ComputeStream stream );
 
     static void
-    axpy( const size_t N, const S alpha, S *x, S *y, AMP::Utilities::AccelerationContext &ctx );
+    axpy( const size_t N, const S alpha, S *x, S *y, const AMP::Utilities::ComputeStream stream );
 
-    static void copy( const size_t N, const S *x, S *y, AMP::Utilities::AccelerationContext &ctx );
+    static void
+    copy( const size_t N, const S *x, S *y, const AMP::Utilities::ComputeStream stream );
 
     static void setDiagonal( const L *row_starts,
                              S *coeffs,
                              const size_t N,
                              const S *diag,
-                             AMP::Utilities::AccelerationContext &ctx );
+                             const AMP::Utilities::ComputeStream stream );
 
     static void extractDiagonal( const L *row_starts,
                                  const S *coeffs,
                                  const size_t N,
                                  S *diag,
-                                 AMP::Utilities::AccelerationContext &ctx );
+                                 const AMP::Utilities::ComputeStream stream );
 
     static void setIdentity( const L *row_starts,
                              S *coeffs,
                              const size_t N,
-                             AMP::Utilities::AccelerationContext &ctx );
+                             const AMP::Utilities::ComputeStream stream );
 
     static void LinfNorm( const size_t N,
                           const S *x,
                           const L *row_starts,
                           S *row_sums,
-                          AMP::Utilities::AccelerationContext &ctx );
+                          const AMP::Utilities::ComputeStream stream );
 };
 
 } // namespace LinearAlgebra

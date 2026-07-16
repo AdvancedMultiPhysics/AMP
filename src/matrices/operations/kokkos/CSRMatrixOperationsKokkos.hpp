@@ -142,7 +142,7 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
         AMP::Utilities::Algorithms::zero_n( vvals_d.get(),
                                             rcols.size(),
                                             localmatrixdata_t::d_memory_location,
-                                            A.d_acceleration_context );
+                                            csrData->d_acceleration_context.getStream() );
         std::vector<scalar_t> vvals_h( rcols.size() );
 
         d_localops_offd->multTranspose( inDataBlock,
@@ -157,9 +157,9 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
                                             vvals_d.get(),
                                             localmatrixdata_t::d_memory_location,
                                             rcols.size(),
-                                            A.d_acceleration_context );
+                                            csrData->d_acceleration_context.getStream() );
         if constexpr ( Config::device_accessible ) {
-            A.d_acceleration_context.synchronizeStream();
+            csrData->d_acceleration_context.synchronizeStream();
         }
 
         // copy rcols and vvals into std::vectors and write out
@@ -504,7 +504,7 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
 
     // Reduce row sums to get global Linf norm
     auto max_norm = AMP::Utilities::Algorithms::max_element(
-        sums.data(), nRows, Config::mem_loc, A.d_acceleration_context );
+        sums.data(), nRows, Config::mem_loc, csrData->d_acceleration_context.getStream() );
     AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }

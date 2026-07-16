@@ -1,6 +1,7 @@
 #ifndef included_AMP_VectorOperationsDefault_hpp
 #define included_AMP_VectorOperationsDefault_hpp
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Backend.h"
 #include "AMP/utils/Memory.h"
@@ -96,7 +97,7 @@ void VectorOperationsDefault<TYPE>::zero( VectorData &x )
         auto data = x.getRawDataBlock<TYPE>( i );
         auto N    = x.sizeOfDataBlock( i );
         AMP::Utilities::Algorithms::zero_n(
-            data, N, x.getMemoryLocation(), x.d_acceleration_context );
+            data, N, x.getMemoryLocation(), AMP::AMPManager::getDefaultComputeStream() );
     }
     x.fillGhosts( 0 );
     // Override the status state since we set the ghost values
@@ -184,7 +185,7 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
                                                 xdata,
                                                 x.getMemoryLocation(),
                                                 N,
-                                                y.d_acceleration_context );
+                                                AMP::AMPManager::getDefaultComputeStream() );
         }
         y.copyGhostValues( x );
         // Override the status state since we set the ghost values
@@ -202,7 +203,7 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
                                                       xdata,
                                                       x.getMemoryLocation(),
                                                       N,
-                                                      y.d_acceleration_context );
+                                                      AMP::AMPManager::getDefaultComputeStream() );
             } else if ( type == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
                 auto xdata = x.getRawDataBlock<double>( i );
                 AMP::Utilities::Algorithms::copyCast( reinterpret_cast<float *>( ydata ),
@@ -210,7 +211,7 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
                                                       xdata,
                                                       x.getMemoryLocation(),
                                                       N,
-                                                      y.d_acceleration_context );
+                                                      AMP::AMPManager::getDefaultComputeStream() );
             } else {
                 AMP_ERROR( "copy only implemented for float or doubles" );
             }

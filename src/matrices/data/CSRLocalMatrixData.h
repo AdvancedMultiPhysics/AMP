@@ -181,10 +181,9 @@ public:
                                              d_cols_unq.get(),
                                              Config::mem_loc,
                                              d_ncols_unq,
-                                             d_acceleration_context );
+                                             d_acceleration_context.getStream() );
         }
     }
-
 
     //! Set total number of nonzeros and allocate space accordingly
     void setNNZ( lidx_t tot_nnz );

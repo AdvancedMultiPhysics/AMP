@@ -213,7 +213,7 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
     AMP_WARN_ONCE( "AMP::Solver::AMG::save_hierarchy requires that AMP be built with HDF5 enabled. "
                    "No Hierarchy information will be saved" );
     return;
-#endif
+#else
     for ( size_t nl = 0; nl < levels.size(); ++nl ) {
         // create file name for A
         const auto fname_A = std::string( base_name ) + "_Level" + std::to_string( nl ) + "_A";
@@ -256,6 +256,7 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
             } );
         }
     }
+#endif
 }
 
 } // namespace AMP::Solver::AMG
