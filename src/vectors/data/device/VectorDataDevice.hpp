@@ -588,18 +588,18 @@ void VectorDataDevice<TYPE, Allocator>::getGhostValuesByGlobalID(
 
         auto data = static_cast<TYPE *>( vals );
         AMP_DEBUG_INSIST( this->allGhostIndices( N, ndx_ ), "Non ghost index encountered" );
+        auto stream = AMP::Utilities::AccelerationContext::default_context.getStream();
 
-        DeviceDataHelpers<TYPE>::getGhostValuesByGlobalID(
-            this->d_ghostSize,
-            this->d_ReceiveDOFList,
-            N,
-            ndxReq,
-            this->d_idx_map_scratch,
-            this->d_ghostSize,
-            this->d_Ghosts,
-            this->d_AddBuffer,
-            data,
-            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        DeviceDataHelpers<TYPE>::getGhostValuesByGlobalID( this->d_ghostSize,
+                                                           this->d_ReceiveDOFList,
+                                                           N,
+                                                           ndxReq,
+                                                           this->d_idx_map_scratch,
+                                                           this->d_ghostSize,
+                                                           this->d_Ghosts,
+                                                           this->d_AddBuffer,
+                                                           data,
+                                                           stream );
 
         if ( scratchUsed ) {
             Utilities::Algorithms::copy_n(

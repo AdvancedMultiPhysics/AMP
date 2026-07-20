@@ -304,12 +304,12 @@ void GhostDataHelper<TYPE, Allocator>::makeConsistent( ScatterType t )
 template<class TYPE, class Allocator>
 void GhostDataHelper<TYPE, Allocator>::scatter_set()
 {
+    PROFILE( "GhostDataHelper::scatter_set" );
 
     AMP_ASSERT( d_CommList );
     if ( !d_CommList->anyCommunication() )
         return;
     AMP_DEBUG_ASSERT( d_scatter_tag >= 0 );
-    PROFILE( "GhostDataHelper::scatter_set" );
     constexpr auto type   = getTypeID<TYPE>();
     const auto &sendSizes = d_CommList->getSendSizes();
     const auto &recvSizes = d_CommList->getReceiveSizes();
@@ -317,14 +317,11 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     const auto &sendDisp  = d_CommList->getSendDisp();
     const auto &recvDisp  = d_CommList->getReceiveDisp();
 
-    // Have special cases for device memory
-    constexpr Utilities::MemoryType allocMemType = Utilities::getAllocatorMemoryType<Allocator>();
-
     // default buffers
     TYPE *send_p   = d_SendRecv;
     TYPE *ghosts_p = d_Ghosts;
 
-    if constexpr ( allocMemType == Utilities::MemoryType::device ) {
+    if constexpr ( d_memory_location == Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
         // don't have gpu aware MPI
         // allocate host buffers and set pointers to them
@@ -351,7 +348,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
     if ( d_localRemote != nullptr ) {
         PROFILE( "GhostDataHelper::scatter_set (pack buffer)" );
         getValuesByLocalID( d_numRemote, d_localRemote, d_SendRecv, type, d_memory_location );
-        if constexpr ( allocMemType == Utilities::MemoryType::device ) {
+        if constexpr ( d_memory_location == Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
             PROFILE( "GhostDataHelper::scatter_set (D->H copy)" );
             Utilities::Algorithms::copy_n( send_p,
@@ -360,10 +357,10 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
                                            d_memory_location,
                                            d_numRemote,
                                            stream );
-            deviceStreamSynchronize( stream );
 #endif
         }
     }
+    deviceStreamSynchronize( stream );
 
     // post all sends
     std::vector<AMP_MPI::Request> send_request;
@@ -379,7 +376,7 @@ void GhostDataHelper<TYPE, Allocator>::scatter_set()
 
     // we only handle the device case at present though we could prefetch to device for managed
     // memory (TODO)
-    if constexpr ( allocMemType == Utilities::MemoryType::device ) {
+    if constexpr ( d_memory_location == Utilities::MemoryType::device ) {
 #ifndef AMP_ENABLE_GPU_AWARE_MPI
         PROFILE( "GhostDataHelper::scatter_set (H->D copy)" );
         Utilities::Algorithms::copy_n( d_Ghosts,
@@ -404,7 +401,6 @@ void GhostDataHelper<TYPE, Allocator>::scatter_add()
     AMP_ASSERT( d_CommList );
     if ( !d_CommList->anyCommunication() )
         return;
-    PROFILE( "scatter_add" );
     constexpr auto type   = getTypeID<TYPE>();
     const auto &sendSizes = d_CommList->getSendSizes();
     const auto &recvSizes = d_CommList->getReceiveSizes();

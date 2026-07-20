@@ -196,10 +196,9 @@ void VectorData::getValuesByGlobalID( size_t N,
             ndx_mem, AMP::Utilities::MemoryType::host, ndx_, buf_loc, N, stream );
         ndx      = ndx_mem;
         vals_mem = new TYPE[N];
-        AMP::Utilities::Algorithms::copy_n(
-            vals_mem, AMP::Utilities::MemoryType::host, vals_, buf_loc, N, stream );
-        vals = vals_mem;
+        vals     = vals_mem;
     }
+
     constexpr size_t N_max = 128;
     while ( N != 0 ) {
         size_t N2      = std::min( N, N_max );
@@ -237,6 +236,12 @@ void VectorData::getValuesByGlobalID( size_t N,
         ndx  = &ndx[N2];
         vals = &vals[N2];
     }
+
+    if ( buf_loc >= AMP::Utilities::MemoryType::managed ) {
+        AMP::Utilities::Algorithms::copy_n(
+            vals_, buf_loc, vals_mem, AMP::Utilities::MemoryType::host, N, stream );
+    }
+
     delete[] ndx_mem;
     delete[] vals_mem;
 }

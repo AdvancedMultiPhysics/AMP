@@ -860,7 +860,7 @@ void CSRLocalMatrixData<Config>::setNNZ( bool do_accum )
                                                     d_acceleration_context.getStream() );
     }
 
-    if ( Config::mem_loc >= AMP::Utilities::MemoryType::managed ) {
+    if ( Config::device_accessible ) {
         const lidx_t *ptr_loc = d_row_starts.get() + d_num_rows;
         AMP::Utilities::Algorithms::copy_n( &d_nnz,
                                             AMP::Utilities::MemoryType::host,
