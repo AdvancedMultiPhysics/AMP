@@ -51,8 +51,8 @@ CSRMatrixData<Config>::CSRMatrixData()
 
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData( std::shared_ptr<MatrixParametersBase> params )
-    : d_acceleration_context( AMP::Utilities::AccelerationContext::default_context ),
-      MatrixData( params )
+    : MatrixData( params ),
+      d_acceleration_context( AMP::Utilities::AccelerationContext::default_context )
 {
     PROFILE( "CSRMatrixData::constructor" );
 
@@ -1291,8 +1291,8 @@ void CSRMatrixData<Config>::writeRestart( int64_t fid ) const
 
 template<typename Config>
 CSRMatrixData<Config>::CSRMatrixData( int64_t fid, AMP::IO::RestartManager *manager )
-    : d_acceleration_context( AMP::Utilities::AccelerationContext::default_context ),
-      MatrixData( fid, manager )
+    : MatrixData( fid, manager ),
+      d_acceleration_context( AMP::Utilities::AccelerationContext::default_context )
 {
     uint64_t diagMatrixID, offdMatrixID, leftCommListID, rightCommListID, leftDOFManagerID,
         rightDOFManagerID;

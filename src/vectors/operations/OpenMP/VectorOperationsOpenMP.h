@@ -2,8 +2,9 @@
 #define included_AMP_VectorOperationsOpenMP
 
 
-#include "AMP/vectors/operations/VectorOperations.h"
+#include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
+#include <memory>
 
 namespace AMP::LinearAlgebra {
 
@@ -89,6 +90,11 @@ public: // Pull VectorOperations into the current scope
     using VectorOperations::subtract;
     using VectorOperations::wrmsNorm;
     using VectorOperations::wrmsNormMask;
+
+private:
+    VectorOperationsDefault<TYPE> &getDefaultOps( void );
+    const VectorOperationsDefault<TYPE> &getDefaultOps( void ) const;
+    mutable std::shared_ptr<VectorOperationsDefault<TYPE>> d_default_ops = nullptr;
 };
 
 

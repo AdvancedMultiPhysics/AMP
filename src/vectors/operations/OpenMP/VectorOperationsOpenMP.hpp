@@ -23,8 +23,26 @@ extern template class VectorOperationsOpenMP<float>;  // Suppresses implicit ins
 template<typename TYPE>
 std::shared_ptr<VectorOperations> VectorOperationsOpenMP<TYPE>::cloneOperations() const
 {
-    auto ptr = std::make_shared<VectorOperationsOpenMP<TYPE>>();
-    return ptr;
+    return std::make_shared<VectorOperationsOpenMP<TYPE>>();
+}
+
+//**********************************************************************
+// support for default operations fallbacks
+template<typename TYPE>
+inline VectorOperationsDefault<TYPE> &VectorOperationsOpenMP<TYPE>::getDefaultOps( void )
+{
+    if ( !d_default_ops )
+        d_default_ops = std::make_shared<VectorOperationsDefault<TYPE>>();
+    return *d_default_ops;
+}
+
+template<typename TYPE>
+inline const VectorOperationsDefault<TYPE> &
+VectorOperationsOpenMP<TYPE>::getDefaultOps( void ) const
+{
+    if ( !d_default_ops )
+        d_default_ops = std::make_shared<VectorOperationsDefault<TYPE>>();
+    return *d_default_ops;
 }
 
 //**********************************************************************
@@ -95,6 +113,14 @@ void VectorOperationsOpenMP<TYPE>::setRandomValues( VectorData &x )
     }
     // Call makeConsistent to leave the vector in a consistent state
     x.makeConsistent( ScatterType::CONSISTENT_SET );
+}
+
+template<typename TYPE>
+void VectorOperationsOpenMP<TYPE>::copy( const VectorData &x, VectorData &y )
+{
+    PROFILE( "VectorOperationsOpenMP::copy" );
+
+    getDefaultOps().copy( x, y );
 }
 
 template<typename TYPE>

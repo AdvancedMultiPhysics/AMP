@@ -207,7 +207,8 @@ std::string_view KappaKCycle::krylovTypeName( const KappaKCycle::krylov_type kt 
     }
 }
 
-void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> &levels )
+void save_hierarchy( [[maybe_unused]] std::string_view base_name,
+                     [[maybe_unused]] const std::vector<KCycleLevel> &levels )
 {
 #ifndef AMP_USE_HDF5
     AMP_WARN_ONCE( "AMP::Solver::AMG::save_hierarchy requires that AMP be built with HDF5 enabled. "
