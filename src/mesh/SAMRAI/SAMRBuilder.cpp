@@ -74,14 +74,15 @@ std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> SAMRBuilder::buildGridd
         if ( print_info_level > 0 )
             AMP::pout << "BergerRigoutsos clustering being used for box generation " << std::endl;
         if ( box_generator_db )
-            box_generator =
-                std::make_shared<SAMRAI::mesh::BergerRigoutsos>( dim, box_generator_db->cloneToSAMRAI() );
+            box_generator = std::make_shared<SAMRAI::mesh::BergerRigoutsos>(
+                dim, box_generator_db->cloneToSAMRAI() );
         else
             box_generator = std::make_shared<SAMRAI::mesh::BergerRigoutsos>( dim );
     } else if ( box_generator_name == "TileClustering" ) {
         if ( print_info_level > 0 )
             AMP::pout << "Tile clustering being used for box generation " << std::endl;
-        box_generator = std::make_shared<SAMRAI::mesh::TileClustering>( dim, box_generator_db->cloneToSAMRAI() );
+        box_generator = std::make_shared<SAMRAI::mesh::TileClustering>(
+            dim, box_generator_db->cloneToSAMRAI() );
     } else {
         AMP_ERROR( "Unknown box generator (" + box_generator_name + ")" );
     }
@@ -121,13 +122,13 @@ std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> SAMRBuilder::buildGridd
     } else {
         grid_db = Database::create( "combine_efficiency", 0.95, "efficiency_tolerance", 0.95 );
     }
-    auto gridding_algorithm = std::make_shared<SAMRAI::mesh::GriddingAlgorithm>(
-        hierarchy,
-        "GriddingAlgorithm" + suffix,
-        grid_db->cloneToSAMRAI(),
-        error_detector,
-        box_generator,
-        load_balancer );
+    auto gridding_algorithm =
+        std::make_shared<SAMRAI::mesh::GriddingAlgorithm>( hierarchy,
+                                                           "GriddingAlgorithm" + suffix,
+                                                           grid_db->cloneToSAMRAI(),
+                                                           error_detector,
+                                                           box_generator,
+                                                           load_balancer );
     return gridding_algorithm;
 }
 
