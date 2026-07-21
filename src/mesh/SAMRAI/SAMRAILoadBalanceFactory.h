@@ -25,7 +25,11 @@ public:
     static std::unique_ptr<SAMRAI::mesh::LoadBalanceStrategy>
     create( SAMRAI::tbox::Dimension dim,
             const std::string &name,
-            std::shared_ptr<SAMRAI::tbox::Database> input_db = {} );
+            std::shared_ptr<const AMP::Database> input_db = {} );
+    [[deprecated]] static std::unique_ptr<SAMRAI::mesh::LoadBalanceStrategy>
+    create( SAMRAI::tbox::Dimension dim,
+            const std::string &name,
+            std::shared_ptr<SAMRAI::tbox::Database> input_db );
     using FactoryStrategy::create;
 };
 

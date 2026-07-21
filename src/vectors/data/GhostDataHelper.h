@@ -71,10 +71,7 @@ public: // Functions overloaded from VectorData
     const AMP_MPI &getComm() const override;
     void dumpGhostedData( std::ostream &out, size_t offset ) const override;
     void copyGhostValues( const VectorData &rhs ) override;
-    AMP::Utilities::MemoryType getMemoryLocation( size_t ) const override
-    {
-        return d_memory_location;
-    }
+    AMP::Utilities::MemoryType getMemoryLocation( size_t i ) const override;
 
     using VectorData::addGhostValuesByGlobalID;
     using VectorData::getGhostAddValuesByGlobalID;

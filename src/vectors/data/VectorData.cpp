@@ -154,6 +154,15 @@ uint64_t VectorData::getID() const
 
 
 /****************************************************************
+ * Get default memory location                                   *
+ ****************************************************************/
+AMP::Utilities::MemoryType VectorData::getMemoryLocation( size_t ) const
+{
+    return AMP::Utilities::MemoryType::host;
+}
+
+
+/****************************************************************
  * Write/Read restart data                                       *
  ****************************************************************/
 void VectorData::registerChildObjects( AMP::IO::RestartManager * ) const {}
