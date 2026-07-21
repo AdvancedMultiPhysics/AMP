@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include "AMP/utils/UtilityMacros.h"
-#include "AMP/utils/cuda/helper_string.h"
 
 #include "StackTrace/source_location.h"
 

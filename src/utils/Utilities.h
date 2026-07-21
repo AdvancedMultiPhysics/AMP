@@ -122,6 +122,15 @@ std::string strrep( const std::string &str, const std::string &s, const std::str
 
 
 /*!
+ * Case insensitive version of strncmp
+ * \param str1   First string
+ * \param str2   Second string
+ * \param num    Number of characters to check
+ */
+int strnicmp( const char *str1, const char *str2, size_t num );
+
+
+/*!
  * Convert common integer values to strings.
  *
  * These are simply wrappers around intToString that ensure the

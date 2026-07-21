@@ -1,5 +1,6 @@
 #include "AMP/mesh/SAMRAI/SAMRAILoadBalanceFactory.h"
 #include "AMP/mesh/SAMRAI/SimpleLoadBalancer.h"
+#include "AMP/utils/Database.h"
 
 #include "SAMRAI/mesh/CascadePartitioner.h"
 #include "SAMRAI/mesh/ChopAndPackLoadBalancer.h"
@@ -33,4 +34,13 @@ AMP::Mesh::SAMRAILoadBalanceFactory::create( SAMRAI::tbox::Dimension dim,
                                              std::shared_ptr<SAMRAI::tbox::Database> input_db )
 {
     return FactoryStrategy::create( name, dim, name, input_db );
+}
+std::unique_ptr<SAMRAI::mesh::LoadBalanceStrategy>
+AMP::Mesh::SAMRAILoadBalanceFactory::create( SAMRAI::tbox::Dimension dim,
+                                             const std::string &name,
+                                             std::shared_ptr<const AMP::Database> input_db )
+{
+    if ( !input_db )
+        input_db = std::make_shared<AMP::Database>( name );
+    return FactoryStrategy::create( name, dim, name, input_db->cloneToSAMRAI() );
 }

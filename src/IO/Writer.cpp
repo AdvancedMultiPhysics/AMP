@@ -79,7 +79,8 @@ Writer::WriterProperties::WriterProperties()
       registerVectorWithMesh( false ),
       registerMatrix( false ),
       enabled( false ),
-      isNull( true )
+      isNull( true ),
+      decomposition( Writer::DecompositionType::SINGLE )
 {
 }
 

@@ -678,22 +678,28 @@ size_t GhostDataHelper<TYPE, Allocator>::getAllGhostValues( void *vals,
 
     if ( id == getTypeID<TYPE>() ) {
         auto data = static_cast<TYPE *>( vals );
-        Utilities::Algorithms::copy_n(
+        AMP::Utilities::Algorithms::copy_n(
             data, buf_loc, d_Ghosts, d_memory_location, d_ghostSize, stream );
     } else if ( id == getTypeID<float>() && std::is_same_v<TYPE, double> ) {
         auto data       = static_cast<float *>( vals );
         auto dbl_ghosts = reinterpret_cast<const double *>( d_Ghosts );
-        Utilities::Algorithms::copyCast(
+        AMP::Utilities::Algorithms::copyCast(
             data, buf_loc, dbl_ghosts, d_memory_location, d_ghostSize, stream );
     } else if ( id == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
         auto data       = static_cast<double *>( vals );
         auto flt_ghosts = reinterpret_cast<const float *>( d_Ghosts );
-        Utilities::Algorithms::copyCast(
+        AMP::Utilities::Algorithms::copyCast(
             data, buf_loc, flt_ghosts, d_memory_location, d_ghostSize, stream );
     } else {
         AMP_ERROR( "Ghosts copy with mismatched types only supports float/double combinations" );
     }
     return d_ghostSize;
+}
+
+template<class TYPE, class Allocator>
+AMP::Utilities::MemoryType GhostDataHelper<TYPE, Allocator>::getMemoryLocation( size_t ) const
+{
+    return d_memory_location;
 }
 
 
