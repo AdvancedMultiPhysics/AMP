@@ -6,15 +6,11 @@
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
 #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/utils/typeid.h"
-
-#include "thrust/device_vector.h"
-#include "thrust/execution_policy.h"
-#include "thrust/extrema.h"
-
-#include <algorithm>
 
 #include "ProfilerApp.h"
 
@@ -79,6 +75,7 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
         }
         CSRLocalMatrixOperationsDevice<Config>::mult( ghosts, offdMatrix, outDataBlock );
     }
+    outData->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -239,6 +236,7 @@ void CSRMatrixOperationsDevice<Config>::extractDiagonal( MatrixData const &A,
 
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     CSRLocalMatrixOperationsDevice<Config>::extractDiagonal( diagMatrix, buf_p );
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -282,8 +280,12 @@ AMP::Scalar CSRMatrixOperationsDevice<Config>::LinfNorm( MatrixData const &A ) c
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = *thrust::max_element( thrust::device, rowSums.begin(), rowSums.end() );
-    AMP_MPI comm  = csrData->getComm();
+    auto max_norm =
+        Utilities::Algorithms::max_element( rowSums.data().get(),
+                                            nRows,
+                                            Utilities::MemoryType::device,
+                                            csrData->d_acceleration_context.getStream() );
+    AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
 
@@ -313,57 +315,6 @@ void CSRMatrixOperationsDevice<Config>::copy( const MatrixData &X, MatrixData &Y
     CSRLocalMatrixOperationsDevice<Config>::copy( diagMatrixX, diagMatrixY );
     if ( csrDataX->hasOffDiag() ) {
         CSRLocalMatrixOperationsDevice<Config>::copy( offdMatrixX, offdMatrixY );
-    }
-}
-
-template<typename Config>
-void CSRMatrixOperationsDevice<Config>::copyCast( const MatrixData &X, MatrixData &Y )
-{
-    PROFILE( "CSRMatrixOperationsDevice::copyCast" );
-
-    auto csrDataY = getCSRMatrixData<Config>( Y );
-    AMP_DEBUG_ASSERT( csrDataY );
-    if ( X.getCoeffType() == getTypeID<double>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f64>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else if ( X.getCoeffType() == getTypeID<float>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f32>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else {
-        AMP_ERROR( "Can't copyCast from the given matrix, policy not supported" );
-    }
-}
-
-template<typename Config>
-template<typename ConfigIn>
-void CSRMatrixOperationsDevice<Config>::copyCast(
-    CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
-{
-    PROFILE( "CSRMatrixOperationsDevice::copyCast" );
-
-    AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
-                      "CSRMatrixOperationsDevice::copyCast X and Y must be in same memory space" );
-
-    auto diagMatrixX = X->getDiagMatrix();
-    auto offdMatrixX = X->getOffdMatrix();
-
-    auto diagMatrixY = Y->getDiagMatrix();
-    auto offdMatrixY = Y->getOffdMatrix();
-
-    AMP_DEBUG_ASSERT( diagMatrixX && offdMatrixX );
-    AMP_DEBUG_ASSERT( diagMatrixY && offdMatrixY );
-
-    localops_t::template copyCast<ConfigIn>( diagMatrixX, diagMatrixY );
-    if ( X->hasOffDiag() ) {
-        localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
 }
 

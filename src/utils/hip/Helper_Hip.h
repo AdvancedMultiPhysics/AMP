@@ -10,6 +10,10 @@
 #include "AMP/utils/UtilityMacros.h"
 #include "StackTrace/source_location.h"
 
+namespace AMP::Utilities {
+typedef hipStream_t ComputeStream;
+}
+
 #define hostDeviceId hipCpuDeviceId
 
 #define deviceMemAttachGlobal hipMemAttachGlobal
@@ -22,12 +26,22 @@
 #define deviceGetCount( ... ) checkHipErrors( hipGetDeviceCount( __VA_ARGS__ ) )
 #define deviceBind( ... ) checkHipErrors( hipSetDevice( __VA_ARGS__ ) )
 #define deviceId( ... ) checkHipErrors( hipGetDevice( __VA_ARGS__ ) )
+
+#define deviceStreamCreate( ... ) checkHipErrors( hipStreamCreate( __VA_ARGS__ ) )
+#define deviceStreamDestroy( ... ) checkHipErrors( hipStreamDestroy( __VA_ARGS__ ) )
+#define deviceStreamSynchronize( STREAM ) checkHipErrors( hipStreamSynchronize( STREAM ) )
 #define deviceSynchronize() checkHipErrors( hipDeviceSynchronize() )
+
 #define deviceMalloc( ... ) checkHipErrors( hipMalloc( __VA_ARGS__ ) )
 #define deviceMallocManaged( ... ) checkHipErrors( hipMallocManaged( __VA_ARGS__ ) )
 #define deviceMemcpy( ... ) checkHipErrors( hipMemcpy( __VA_ARGS__ ) )
 #define deviceMemset( ... ) checkHipErrors( hipMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkHipErrors( hipFree( __VA_ARGS__ ) )
+
+#define deviceMallocAsync( ... ) checkHipErrors( hipMallocAsync( __VA_ARGS__ ) )
+#define deviceMemcpyAsync( ... ) checkHipErrors( hipMemcpyAsync( __VA_ARGS__ ) )
+#define deviceMemsetAsync( ... ) checkHipErrors( hipMemsetAsync( __VA_ARGS__ ) )
+#define deviceFreeAsync( ... ) checkHipErrors( hipFreeAsync( __VA_ARGS__ ) )
 #define deviceMemPrefetchAsync( ... ) checkHipErrors( hipMemPrefetchAsync( __VA_ARGS__ ) )
 
 namespace AMP::Utilities {

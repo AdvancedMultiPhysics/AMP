@@ -2,36 +2,40 @@
 
 #include <complex>
 
-#define INST_SIMPLE( TYPE )                                                 \
-    template void AMP::Utilities::Algorithms::fill_n<TYPE>(                 \
-        TYPE *, const size_t, const TYPE, const MemoryType );               \
-    template void AMP::Utilities::Algorithms::zero_n<TYPE>(                 \
-        TYPE *, const size_t, const MemoryType );                           \
-    template void AMP::Utilities::Algorithms::exclusive_scan<TYPE>(         \
-        const TYPE *, const size_t, TYPE *, const TYPE, const MemoryType ); \
-    template void AMP::Utilities::Algorithms::inclusive_scan<TYPE>(         \
-        const TYPE *, const size_t, TYPE *, const MemoryType );             \
-    template void AMP::Utilities::Algorithms::sort<TYPE>(                   \
-        TYPE *, const size_t, const MemoryType );                           \
-    template TYPE AMP::Utilities::Algorithms::min_element<TYPE>(            \
-        const TYPE *, const size_t, const MemoryType );                     \
-    template TYPE AMP::Utilities::Algorithms::max_element<TYPE>(            \
-        const TYPE *, const size_t, const MemoryType );                     \
-    template TYPE AMP::Utilities::Algorithms::accumulate<TYPE>(             \
-        const TYPE *, const size_t, const TYPE, const MemoryType );         \
-    template size_t AMP::Utilities::Algorithms::unique<TYPE>(               \
-        TYPE *, const size_t, const MemoryType );
+#define INST_SIMPLE( TYPE )                                                                      \
+    template void AMP::Utilities::Algorithms::fill_n<TYPE>(                                      \
+        TYPE *, const size_t, const TYPE, const MemoryType, const ComputeStream );               \
+    template void AMP::Utilities::Algorithms::zero_n<TYPE>(                                      \
+        TYPE *, const size_t, const MemoryType, const ComputeStream );                           \
+    template void AMP::Utilities::Algorithms::exclusive_scan<TYPE>(                              \
+        const TYPE *, const size_t, TYPE *, const TYPE, const MemoryType, const ComputeStream ); \
+    template void AMP::Utilities::Algorithms::inclusive_scan<TYPE>(                              \
+        const TYPE *, const size_t, TYPE *, const MemoryType, const ComputeStream );             \
+    template void AMP::Utilities::Algorithms::sort<TYPE>(                                        \
+        TYPE *, const size_t, const MemoryType, const ComputeStream );                           \
+    template TYPE AMP::Utilities::Algorithms::min_element<TYPE>(                                 \
+        const TYPE *, const size_t, const MemoryType, const ComputeStream );                     \
+    template TYPE AMP::Utilities::Algorithms::max_element<TYPE>(                                 \
+        const TYPE *, const size_t, const MemoryType, const ComputeStream );                     \
+    template TYPE AMP::Utilities::Algorithms::accumulate<TYPE>(                                  \
+        const TYPE *, const size_t, const TYPE, const MemoryType, const ComputeStream );         \
+    template size_t AMP::Utilities::Algorithms::unique<TYPE>(                                    \
+        TYPE *, const size_t, const MemoryType, const ComputeStream );
 
-#define INST_COPY( TYPE )                                       \
-    template void AMP::Utilities::Algorithms::copy_n<TYPE>(     \
-        TYPE *, const TYPE *, const size_t, const MemoryType ); \
-    template void AMP::Utilities::Algorithms::copy_n<TYPE>(     \
-        TYPE *, const MemoryType, const TYPE *, const MemoryType, const size_t );
+#define INST_COPY( TYPE )                                                            \
+    template void AMP::Utilities::Algorithms::copy_n<TYPE>(                          \
+        TYPE *, const TYPE *, const size_t, const MemoryType, const ComputeStream ); \
+    template void AMP::Utilities::Algorithms::copy_n<TYPE>( TYPE *,                  \
+                                                            const MemoryType,        \
+                                                            const TYPE *,            \
+                                                            const MemoryType,        \
+                                                            const size_t,            \
+                                                            const ComputeStream );
 
 
 #define INST_COPYCAST( TDst, TSrc )                                 \
     template void AMP::Utilities::Algorithms::copyCast<TDst, TSrc>( \
-        TDst *, const MemoryType, const TSrc *, const MemoryType, size_t );
+        TDst *, const MemoryType, const TSrc *, const MemoryType, size_t, const ComputeStream );
 
 INST_SIMPLE( int )
 INST_SIMPLE( unsigned long )

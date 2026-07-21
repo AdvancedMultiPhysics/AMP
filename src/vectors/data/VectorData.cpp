@@ -48,6 +48,12 @@ void VectorData::makeConsistent()
 {
     PROFILE( "VectorData::makeConsistent" );
 
+    // always stream sync for managed in case downstream usage is on host
+    if ( this->getMemoryLocation() == AMP::Utilities::MemoryType::managed ) {
+        [[maybe_unused]] auto stream = AMP::AMPManager::getDefaultComputeStream();
+        deviceStreamSynchronize( stream );
+    }
+
     auto state = getGlobalUpdateStatus();
     if ( state == UpdateState::UNCHANGED ) {
         return;

@@ -2,6 +2,7 @@
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/utils/typeid.h"
@@ -74,6 +75,7 @@ void CSRMatrixOperationsDefault<Config>::mult( std::shared_ptr<const Vector> in,
         }
         d_localops_offd->mult( ghosts, offdMatrix, outDataBlock );
     }
+    outData->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -351,6 +353,7 @@ void CSRMatrixOperationsDefault<Config>::extractDiagonal( MatrixData const &A,
                 "CSRMatrixOperationsDefault::extractDiagonal not implemented for device memory" );
 
     d_localops_diag->extractDiagonal( csrData->getDiagMatrix(), rawVecData );
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -373,12 +376,14 @@ void CSRMatrixOperationsDefault<Config>::getRowSums( MatrixData const &A,
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms::zero_n( rawVecData, nRows, Config::mem_loc );
+    AMP::Utilities::Algorithms::zero_n(
+        rawVecData, nRows, Config::mem_loc, AMP::AMPManager::getDefaultComputeStream() );
 
     d_localops_diag->getRowSums( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->getRowSums( csrData->getOffdMatrix(), rawVecData );
     }
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -403,7 +408,8 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
     // zero out buffer so that the next two calls can accumulate into it
     const auto nRows = static_cast<lidx_t>( csrData->numLocalRows() );
     AMP_ASSERT( buf->getLocalSize() == static_cast<size_t>( nRows ) );
-    AMP::Utilities::Algorithms::zero_n( rawVecData, nRows, Config::mem_loc );
+    AMP::Utilities::Algorithms::zero_n(
+        rawVecData, nRows, Config::mem_loc, AMP::AMPManager::getDefaultComputeStream() );
 
     d_localops_diag->getRowSumsAbsolute( csrData->getDiagMatrix(), rawVecData );
     if ( csrData->hasOffDiag() ) {
@@ -415,6 +421,7 @@ void CSRMatrixOperationsDefault<Config>::getRowSumsAbsolute( MatrixData const &A
             rawVecData[row] = rawVecData[row] != 0 ? rawVecData[row] : 1;
         }
     }
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -467,61 +474,6 @@ void CSRMatrixOperationsDefault<Config>::copy( const MatrixData &X, MatrixData &
     d_localops_diag->copy( diagMatrixX, diagMatrixY );
     if ( csrDataX->hasOffDiag() ) {
         d_localops_offd->copy( offdMatrixX, offdMatrixY );
-    }
-}
-
-template<typename Config>
-void CSRMatrixOperationsDefault<Config>::copyCast( const MatrixData &X, MatrixData &Y )
-{
-    PROFILE( "CSRMatrixOperationsDefault::copyCast" );
-
-    auto csrDataY = getCSRMatrixData<Config>( Y );
-    AMP_DEBUG_ASSERT( csrDataY );
-    if ( X.getCoeffType() == getTypeID<double>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f64>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else if ( X.getCoeffType() == getTypeID<float>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f32>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else {
-        AMP_ERROR( "Can't copyCast from the given matrix, policy not supported" );
-    }
-}
-
-template<typename Config>
-template<typename ConfigIn>
-void CSRMatrixOperationsDefault<Config>::copyCast(
-    CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
-{
-    PROFILE( "CSRMatrixOperationsDefault::copyCast" );
-
-    AMP_DEBUG_INSIST( X->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
-    AMP_DEBUG_INSIST( Y->d_memory_location != AMP::Utilities::MemoryType::device,
-                      "CSRMatrixOperationsDefault is not implemented for device memory" );
-    AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
-                      "CSRMatrixOperationsDefault::copyCast X and Y must be in same memory space" );
-
-    auto diagMatrixX = X->getDiagMatrix();
-    auto offdMatrixX = X->getOffdMatrix();
-
-    auto diagMatrixY = Y->getDiagMatrix();
-    auto offdMatrixY = Y->getOffdMatrix();
-
-    AMP_DEBUG_ASSERT( diagMatrixX && offdMatrixX );
-    AMP_DEBUG_ASSERT( diagMatrixY && offdMatrixY );
-
-    localops_t::template copyCast<ConfigIn>( diagMatrixX, diagMatrixY );
-    if ( X->hasOffDiag() ) {
-        localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
 }
 

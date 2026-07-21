@@ -1,6 +1,7 @@
 #ifndef included_AMP_VectorData
 #define included_AMP_VectorData
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
@@ -874,10 +875,9 @@ protected:                   // Internal data
     // Friends
     friend class VectorOperations;
 
-
 public:
     //! Default constructors
-    VectorData()                     = default;
+    VectorData() {}
     VectorData( const VectorData & ) = delete;
 };
 

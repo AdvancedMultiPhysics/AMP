@@ -3,9 +3,11 @@
 
 #include "AMP/matrices/MatrixParametersBase.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 
 #include <algorithm>
 #include <functional>
@@ -174,20 +176,20 @@ public:
         if ( d_is_diag ) {
             std::iota( colMap.begin(), colMap.end(), d_first_col );
         } else {
-            AMP::Utilities::Algorithms::copyCast( colMap.data(),
-                                                  AMP::Utilities::MemoryType::host,
-                                                  d_cols_unq.get(),
-                                                  Config::mem_loc,
-                                                  d_ncols_unq );
+            Utilities::Algorithms::copyCast( colMap.data(),
+                                             Utilities::MemoryType::host,
+                                             d_cols_unq.get(),
+                                             Config::mem_loc,
+                                             d_ncols_unq,
+                                             d_acceleration_context.getStream() );
         }
     }
-
 
     //! Set total number of nonzeros and allocate space accordingly
     void setNNZ( lidx_t tot_nnz );
 
     //! Set number of nonzeros in each row and allocate space accordingly
-    void setNNZ( const lidx_t *nnz, const AMP::Utilities::MemoryType nnz_loc );
+    void setNNZ( const lidx_t *nnz, const Utilities::MemoryType nnz_loc );
 
     //! setNNZ function that references d_row_starts and optionally does scan
     void setNNZ( bool do_accum );
@@ -220,25 +222,28 @@ public:
                     const bool is_diag );
 
     template<typename U>
-    static std::shared_ptr<U[]> sharedArrayBuilder( const size_t N )
+    std::shared_ptr<U[]> sharedArrayBuilder( const size_t N ) const
     {
         using alloc_t = typename std::allocator_traits<allocator_type>::template rebind_alloc<U>;
         alloc_t alloc;
         return std::shared_ptr<typename alloc_t::value_type[]>(
-            alloc.allocate( N ), [N, &alloc]( auto p ) -> void { alloc.deallocate( p, N ); } );
+            alloc.allocate( N, d_acceleration_context.getStream() ),
+            [N, &alloc, stream = d_acceleration_context.getStream()]( auto p ) -> void {
+                alloc.deallocate( p, N, stream );
+            } );
     }
 
-    static std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N )
+    std::shared_ptr<lidx_t[]> makeLidxArray( const size_t N ) const
     {
         return sharedArrayBuilder<lidx_t>( N );
     }
 
-    static std::shared_ptr<gidx_t[]> makeGidxArray( const size_t N )
+    std::shared_ptr<gidx_t[]> makeGidxArray( const size_t N ) const
     {
         return sharedArrayBuilder<gidx_t>( N );
     }
 
-    static std::shared_ptr<scalar_t[]> makeScalarArray( const size_t N )
+    std::shared_ptr<scalar_t[]> makeScalarArray( const size_t N ) const
     {
         return sharedArrayBuilder<scalar_t>( N );
     }
@@ -266,7 +271,9 @@ public:
     CSRLocalMatrixData( int64_t fid, AMP::IO::RestartManager *manager );
 
     //! Memory location, set by examining type of Allocator
-    static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
+    static constexpr Utilities::MemoryType d_memory_location = Config::mem_loc;
+
+    AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:
     /** \brief  Sort the columns/values within each row
@@ -283,6 +290,10 @@ protected:
     //! Migrate data to new memory space
     template<typename ConfigOut>
     std::shared_ptr<CSRLocalMatrixData<ConfigOut>> migrate() const;
+
+    //! Copy coefficients from another CSRLocalMatrixData and cast them if needed
+    template<typename ConfigIn>
+    void copyFrom( std::shared_ptr<const CSRLocalMatrixData<ConfigIn>> in );
 
     //! Make matrix data for transpose
     std::shared_ptr<CSRLocalMatrixData>

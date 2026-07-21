@@ -3,6 +3,7 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/CSRMatrix.h"
+#include "AMP/matrices/CSRVisit.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
@@ -317,6 +318,20 @@ void CSRMatrix<Config>::multiply( std::shared_ptr<Matrix> other_op,
         auto resultData = std::dynamic_pointer_cast<matrixdata_t>( result->getMatrixData() );
         d_matrixOps->matMatMult( thisData, otherData, resultData );
     }
+}
+
+/********************************************************
+ * Copy and cast as needed from another CSRMatrix        *
+ ********************************************************/
+template<typename Config>
+void CSRMatrix<Config>::copyCast( std::shared_ptr<const Matrix> X )
+{
+    auto this_data = std::dynamic_pointer_cast<matrixdata_t>( getMatrixData() );
+    csrVisit( X, [this_data]( const auto csr_ptr ) {
+        using x_data_t = typename decltype( csr_ptr )::element_type::matrixdata_t;
+        auto X_data    = std::dynamic_pointer_cast<const x_data_t>( csr_ptr->getMatrixData() );
+        this_data->copyFrom( X_data );
+    } );
 }
 
 /********************************************************

@@ -109,6 +109,7 @@ void Matrix::mult( AMP::LinearAlgebra::Vector::const_shared_ptr in,
 {
     AMP_ASSERT( in->getUpdateStatus() == AMP::LinearAlgebra::UpdateState::UNCHANGED );
     d_matrixOps->mult( in, *getMatrixData(), out );
+    out->makeConsistent();
 }
 
 void Matrix::multTranspose( AMP::LinearAlgebra::Vector::const_shared_ptr in,
@@ -218,6 +219,7 @@ Vector::shared_ptr Matrix::getRowSums( Vector::shared_ptr buf ) const
         out = this->createOutputVector();
     out->setNoGhosts();
     d_matrixOps->getRowSums( *getMatrixData(), out );
+    out->makeConsistent();
     return out;
 }
 Vector::shared_ptr Matrix::getRowSumsAbsolute( Vector::shared_ptr buf,
@@ -229,6 +231,7 @@ Vector::shared_ptr Matrix::getRowSumsAbsolute( Vector::shared_ptr buf,
         out = this->createOutputVector();
     out->setNoGhosts();
     d_matrixOps->getRowSumsAbsolute( *getMatrixData(), out, remove_zeros );
+    out->makeConsistent();
     return out;
 }
 

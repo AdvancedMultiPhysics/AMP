@@ -154,34 +154,20 @@ size_t matVecTest( AMP::UnitTest *ut, const std::string &input_file )
     matVecTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, true, "serial", "host" );
 #endif
 
-    // Get the acceleration backend for the matrix
-    std::vector<std::string> backends;
-    if ( input_db->keyExists( "MatrixAccelerationBackend" ) ) {
-        backends.emplace_back( input_db->getString( "MatrixAccelerationBackend" ) );
-    } else {
-        backends.emplace_back( "serial" );
-#ifdef AMP_USE_KOKKOS
-        backends.emplace_back( "kokkos" );
-#endif
-#ifdef AMP_USE_DEVICE
-        backends.emplace_back( "hip_cuda" );
-#endif
-    }
-
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
-    // backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
 #ifdef USE_OPENMP
     // backendsAndMemory.emplace_back( std::make_pair( "openmp", "host" ) );
 #endif
 #if defined( AMP_USE_KOKKOS )
-    // backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "host" ) );
     #ifdef AMP_USE_DEVICE
-    // backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "kokkos", "managed" ) );
     backendsAndMemory.emplace_back( std::make_pair( "kokkos", "device" ) );
     #endif
 #endif
 #ifdef AMP_USE_DEVICE
-    // backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "managed" ) );
     backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );
 #endif
 

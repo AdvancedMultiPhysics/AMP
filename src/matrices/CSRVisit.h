@@ -25,7 +25,7 @@ struct csr_visitor {
     std::shared_ptr<MatrixType> mat;
     std::decay_t<F> f;
 
-    // use first built config to determing return type
+    // use first built config to determine return type
     using first_config = typename detail::list_begin<built_configs>::type;
     using ret_t =
         std::invoke_result_t<std::decay_t<F>, std::shared_ptr<CSRMatrixType<first_config>>>;
@@ -50,9 +50,15 @@ private:
         using config_t = CSRConfig<a, l, g, s>;
         if constexpr ( is_config_built<config_t> ) { // avoid linker errors for missing
                                                      // instantiations
-            auto ptr = std::dynamic_pointer_cast<CSRMatrixType<config_t>>( mat );
-            AMP_DEBUG_ASSERT( ptr );
-            return std::forward<F>( f )( ptr );
+            if constexpr ( !std::is_const_v<MatrixType> ) {
+                auto ptr = std::dynamic_pointer_cast<CSRMatrixType<config_t>>( mat );
+                AMP_DEBUG_ASSERT( ptr );
+                return std::forward<F>( f )( ptr );
+            } else {
+                auto ptr = std::dynamic_pointer_cast<const CSRMatrixType<config_t>>( mat );
+                AMP_DEBUG_ASSERT( ptr );
+                return std::forward<F>( f )( ptr );
+            }
         }
         AMP_ERROR( "csr_visitor: mode not found!" );
     }
@@ -101,6 +107,10 @@ template<class F>
 csr_visitor( csr_mode, std::shared_ptr<LinearAlgebra::Matrix>, F ) -> csr_visitor<F>;
 
 template<class F>
+csr_visitor( csr_mode, std::shared_ptr<const LinearAlgebra::Matrix>, F )
+    -> csr_visitor<F, const LinearAlgebra::Matrix>;
+
+template<class F>
 csr_visitor( csr_mode, std::shared_ptr<LinearAlgebra::MatrixData>, F )
     -> csr_visitor<F, LinearAlgebra::MatrixData, LinearAlgebra::CSRMatrixData>;
 
@@ -112,6 +122,20 @@ csr_visitor( csr_mode, std::shared_ptr<LinearAlgebra::MatrixData>, F )
  */
 template<class F>
 auto csrVisit( std::shared_ptr<Matrix> mat, F &&f )
+{
+    auto mode = static_cast<csr_mode>( mat->mode() );
+    csr_visitor visit{ mode, mat, std::forward<F>( f ) };
+    return visit();
+}
+
+/*!
+  Helper to recover a CSRMatrix type from a type erased const Matrix pointer
+  @param[in] mat Generic const Matrix pointer
+  @param[in] f Callable that will be invoked with the const CSRMatrix pointer
+  @return Result of calling f with const CSRMatrix pointer
+ */
+template<class F>
+auto csrVisit( std::shared_ptr<const Matrix> mat, F &&f )
 {
     auto mode = static_cast<csr_mode>( mat->mode() );
     csr_visitor visit{ mode, mat, std::forward<F>( f ) };

@@ -63,6 +63,7 @@ int MIS2Aggregator::classifyVertices(
     gidx_t *Ad_cols                                    = nullptr;
     scalar_t *Ad_coeffs                                = nullptr;
     std::tie( Ad_rs, Ad_cols, Ad_cols_loc, Ad_coeffs ) = A_diag->getDataFields();
+    [[maybe_unused]] auto stream                       = A_diag->d_acceleration_context.getStream();
 
     // hash is xorshift* as given on wikipedia
     auto hash = [] AMP_FUNCTION_HD( uint64_t x ) -> uint64_t {
@@ -116,7 +117,8 @@ int MIS2Aggregator::classifyVertices(
                 std::for_each_n( worklist, worklist_len, ref_row );
             } else {
 #ifdef AMP_USE_DEVICE
-                thrust::for_each( thrust::device, worklist, worklist + worklist_len, ref_row );
+                thrust::for_each(
+                    thrust::device.on( stream ), worklist, worklist + worklist_len, ref_row );
 #endif
             }
         }
@@ -138,7 +140,8 @@ int MIS2Aggregator::classifyVertices(
                 std::for_each_n( worklist, worklist_len, nbr_max );
             } else {
 #ifdef AMP_USE_DEVICE
-                thrust::for_each( thrust::device, worklist, worklist + worklist_len, nbr_max );
+                thrust::for_each(
+                    thrust::device.on( stream ), worklist, worklist + worklist_len, nbr_max );
 #endif
             }
             std::swap( Tv, Tv_hat );
@@ -162,7 +165,8 @@ int MIS2Aggregator::classifyVertices(
                 std::for_each_n( worklist, worklist_len, in_out );
             } else {
 #ifdef AMP_USE_DEVICE
-                thrust::for_each( thrust::device, worklist, worklist + worklist_len, in_out );
+                thrust::for_each(
+                    thrust::device.on( stream ), worklist, worklist + worklist_len, in_out );
 #endif
             }
         }
@@ -185,7 +189,8 @@ int MIS2Aggregator::classifyVertices(
                 std::for_each_n( worklist, worklist_len, set_out );
             } else {
 #ifdef AMP_USE_DEVICE
-                thrust::for_each( thrust::device, worklist, worklist + worklist_len, set_out );
+                thrust::for_each(
+                    thrust::device.on( stream ), worklist, worklist + worklist_len, set_out );
 #endif
             }
         }
@@ -200,8 +205,8 @@ int MIS2Aggregator::classifyVertices(
                 worklist_len    = static_cast<lidx_t>( new_end - worklist );
             } else {
 #ifdef AMP_USE_DEVICE
-                lidx_t *new_end =
-                    thrust::remove_if( thrust::device, worklist, worklist + worklist_len, in_out );
+                lidx_t *new_end = thrust::remove_if(
+                    thrust::device.on( stream ), worklist, worklist + worklist_len, in_out );
                 worklist_len = static_cast<lidx_t>( new_end - worklist );
 #endif
             }
@@ -293,6 +298,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     // Get diag block from A and mask it using SoC
     const auto A_nrows = static_cast<lidx_t>( A->numLocalRows() );
     auto A_data        = std::dynamic_pointer_cast<matrixdata_t>( A->getMatrixData() );
+    auto stream        = A_data->d_acceleration_context.getStream();
 
     // get fields from A and use to make diagonal-dominance checker
     auto A_diag   = A_data->getDiagMatrix();
@@ -312,20 +318,24 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     std::shared_ptr<localmatrixdata_t> A_masked;
     if ( d_strength_measure == "classical_abs" ) {
         AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
-        auto S = compute_soc<classical_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        auto S = compute_soc<classical_strength<norm::abs>>(
+            csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "classical_min" ) {
         AMP_WARN_ONCE( "MIS2 aggregation: Use of a symmetric strength measure is advised" );
-        auto S = compute_soc<classical_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        auto S = compute_soc<classical_strength<norm::min>>(
+            csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else if ( d_strength_measure == "symagg_abs" ) {
-        auto S   = compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), d_strength_threshold );
+        auto S =
+            compute_soc<symagg_strength<norm::abs>>( csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     } else {
         if ( d_strength_measure != "symagg_min" ) {
             AMP_WARN_ONCE( "Unrecognized strength measure, reverting to symagg_min" );
         }
-        auto S   = compute_soc<symagg_strength<norm::min>>( csr_view( *A ), d_strength_threshold );
+        auto S =
+            compute_soc<symagg_strength<norm::min>>( csr_view( *A ), stream, d_strength_threshold );
         A_masked = A_diag->maskMatrixData( S.diag_mask_data(), true );
     }
 
@@ -337,16 +347,17 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     std::tie( Am_rs, Am_cols, Am_cols_loc, Am_coeffs ) = A_masked->getDataFields();
 
     // get temporary storage for aggregate sizes and MIS2 labels
-    auto Tv     = localmatrixdata_t::template sharedArrayBuilder<uint64_t>( A_nrows );
-    auto Tv_hat = localmatrixdata_t::template sharedArrayBuilder<uint64_t>( A_nrows );
-    AMP::Utilities::Algorithms::fill_n( Tv.get(), A_nrows, OUT, Config::mem_loc );
-    AMP::Utilities::Algorithms::fill_n( Tv_hat.get(), A_nrows, OUT, Config::mem_loc );
-    auto agg_size       = localmatrixdata_t::template sharedArrayBuilder<int>( A_nrows );
-    auto agg_root_ids   = localmatrixdata_t::template sharedArrayBuilder<int>( A_nrows );
-    auto worklist       = localmatrixdata_t::makeLidxArray( A_nrows );
+    auto Tv     = A_diag->template sharedArrayBuilder<uint64_t>( A_nrows );
+    auto Tv_hat = A_diag->template sharedArrayBuilder<uint64_t>( A_nrows );
+    Utilities::Algorithms::fill_n( Tv.get(), A_nrows, OUT, Config::mem_loc, stream );
+    Utilities::Algorithms::fill_n( Tv_hat.get(), A_nrows, OUT, Config::mem_loc, stream );
+    auto agg_size       = A_diag->template sharedArrayBuilder<int>( A_nrows );
+    auto agg_root_ids   = A_diag->template sharedArrayBuilder<int>( A_nrows );
+    auto worklist       = A_diag->makeLidxArray( A_nrows );
     lidx_t worklist_len = A_nrows;
-    AMP::Utilities::Algorithms::fill_n( agg_size.get(), A_nrows, -1, Config::mem_loc );
-    AMP::Utilities::Algorithms::fill_n( agg_root_ids.get(), A_nrows, UNASSIGNED, Config::mem_loc );
+    Utilities::Algorithms::fill_n( agg_size.get(), A_nrows, -1, Config::mem_loc, stream );
+    Utilities::Algorithms::fill_n(
+        agg_root_ids.get(), A_nrows, UNASSIGNED, Config::mem_loc, stream );
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
     {
@@ -386,7 +397,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( A_nrows ),
                               mark_undec_inv );
@@ -407,7 +418,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 #ifdef AMP_USE_DEVICE
             auto agg_root_ids_ptr = agg_root_ids.get();
             lidx_t *new_end =
-                thrust::copy_if( thrust::device,
+                thrust::copy_if( thrust::device.on( stream ),
                                  thrust::make_counting_iterator( 0 ),
                                  thrust::make_counting_iterator( A_nrows ),
                                  worklist.get(),
@@ -425,7 +436,8 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 
     // initialize aggregates from nodes flagged as IN and all of their neighbors
     {
-        AMP::Utilities::Algorithms::copy_n( agg_ids, agg_root_ids.get(), A_nrows, Config::mem_loc );
+        Utilities::Algorithms::copy_n(
+            agg_ids, agg_root_ids.get(), A_nrows, Config::mem_loc, stream );
         auto Tv_ptr           = Tv.get();
         auto agg_size_ptr     = agg_size.get();
         auto agg_root_ids_ptr = agg_root_ids.get();
@@ -441,7 +453,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( A_nrows ),
                               build_agg );
@@ -462,7 +474,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
 #ifdef AMP_USE_DEVICE
             auto agg_root_ids_ptr = agg_root_ids.get();
             lidx_t *new_end =
-                thrust::copy_if( thrust::device,
+                thrust::copy_if( thrust::device.on( stream ),
                                  thrust::make_counting_iterator( 0 ),
                                  thrust::make_counting_iterator( A_nrows ),
                                  worklist.get(),
@@ -475,15 +487,16 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     }
 
     // do a second pass of classification and aggregation
-    AMP::Utilities::Algorithms::fill_n( Tv.get(), A_nrows, OUT, Config::mem_loc );
-    AMP::Utilities::Algorithms::fill_n( Tv_hat.get(), A_nrows, OUT, Config::mem_loc );
+    Utilities::Algorithms::fill_n( Tv.get(), A_nrows, OUT, Config::mem_loc, stream );
+    Utilities::Algorithms::fill_n( Tv_hat.get(), A_nrows, OUT, Config::mem_loc, stream );
     classifyVertices<Config>(
         A_masked, A->numGlobalRows(), worklist.get(), worklist_len, Tv.get(), Tv_hat.get() );
 
     // on second pass only allow IN vertex to be root of aggregate if it has
     // at least 2 un-aggregated nbrs
     {
-        AMP::Utilities::Algorithms::copy_n( agg_ids, agg_root_ids.get(), A_nrows, Config::mem_loc );
+        Utilities::Algorithms::copy_n(
+            agg_ids, agg_root_ids.get(), A_nrows, Config::mem_loc, stream );
         auto Tv_ptr           = Tv.get();
         auto agg_size_ptr     = agg_size.get();
         auto agg_root_ids_ptr = agg_root_ids.get();
@@ -499,7 +512,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( A_nrows ),
                               build_agg );
@@ -526,7 +539,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( A_nrows ),
                               grow_aggs );
@@ -540,19 +553,20 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     int num_agg = 0, num_dec = 0;
     auto unq_root_ids = agg_size; // rename for clarity
     {
-        AMP::Utilities::Algorithms::copy_n(
-            unq_root_ids.get(), agg_root_ids.get(), A_nrows, Config::mem_loc );
-        AMP::Utilities::Algorithms::sort( unq_root_ids.get(), A_nrows, Config::mem_loc );
+        Utilities::Algorithms::copy_n(
+            unq_root_ids.get(), agg_root_ids.get(), A_nrows, Config::mem_loc, stream );
+        Utilities::Algorithms::sort( unq_root_ids.get(), A_nrows, Config::mem_loc, stream );
         const auto nunq =
-            AMP::Utilities::Algorithms::unique( unq_root_ids.get(), A_nrows, Config::mem_loc );
+            Utilities::Algorithms::unique( unq_root_ids.get(), A_nrows, Config::mem_loc, stream );
         // need to check first two entries of unique'd array
         // if we have UNDECIDED or INVALID need to decrement agg count
         lidx_t first_entries[2];
-        AMP::Utilities::Algorithms::copy_n( first_entries,
-                                            AMP::Utilities::MemoryType::host,
-                                            unq_root_ids.get(),
-                                            Config::mem_loc,
-                                            2 );
+        Utilities::Algorithms::copy_n( first_entries,
+                                       Utilities::MemoryType::host,
+                                       unq_root_ids.get(),
+                                       Config::mem_loc,
+                                       2,
+                                       stream );
         const int dec_inv = ( first_entries[0] == INVALID || first_entries[1] == INVALID ) ? 1 : 0;
         const int dec_und =
             ( first_entries[0] == UNASSIGNED || first_entries[1] == UNASSIGNED ) ? 1 : 0;
@@ -575,7 +589,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         } else {
 #ifdef AMP_USE_DEVICE
             // search for root node ids in list of uniques to create local ids
-            thrust::lower_bound( thrust::device,
+            thrust::lower_bound( thrust::device.on( stream ),
                                  unq_root_ids.get(),
                                  unq_root_ids.get() + num_agg,
                                  agg_root_ids.get(),
@@ -586,7 +600,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             // (&unq_root_ids[num_dec]) because INV/UNDEC would get added to
             // the agg with smallest root id, instead of being ignored
             thrust::transform(
-                thrust::device,
+                thrust::device.on( stream ),
                 agg_ids,
                 agg_ids + A_nrows,
                 agg_ids,

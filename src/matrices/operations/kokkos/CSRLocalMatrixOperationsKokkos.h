@@ -63,11 +63,7 @@ public:
                    Kokkos::View<const lidx_t *, Kokkos::LayoutRight, csr_memspace_t>,
                    Kokkos::View<const scalar_t *, Kokkos::LayoutRight, csr_memspace_t>>;
 
-    CSRLocalMatrixOperationsKokkos( Kokkos::DefaultHostExecutionSpace &exec_host,
-                                    Kokkos::DefaultExecutionSpace &exec_device )
-        : d_exec_host( exec_host ), d_exec_device( exec_device )
-    {
-    }
+    CSRLocalMatrixOperationsKokkos() {}
 
     /** \brief  Matrix-vector multiplication
      * \param[in]  in The vector to multiply
@@ -214,15 +210,6 @@ public:
      */
     void copy( std::shared_ptr<const localmatrixdata_t> X, std::shared_ptr<localmatrixdata_t> Y );
 
-    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
-     * as x and copy the coefficients after up/down casting
-     * \param[in] X matrix data to copy from
-     * \param[in] Y matrix data to copy to after up/down casting the coefficients
-     */
-    template<typename ConfigIn>
-    static void copyCast( std::shared_ptr<CSRLocalMatrixData<ConfigIn>> X,
-                          std::shared_ptr<localmatrixdata_t> Y );
-
     //! Helper function for wrapping csr data into kokkos views
     static csr_const_tuple_t wrapCSRDataKokkos( std::shared_ptr<const localmatrixdata_t> A );
 
@@ -235,11 +222,6 @@ public:
         return Kokkos::View<T *, Kokkos::LayoutRight, Kokkos::AnonymousSpace, ViewArgs...>( ptr,
                                                                                             num );
     }
-
-protected:
-    Kokkos::DefaultHostExecutionSpace d_exec_host;
-    // not device on host-only builds, but also not used in that case
-    Kokkos::DefaultExecutionSpace d_exec_device;
 };
 
 } // namespace AMP::LinearAlgebra

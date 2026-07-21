@@ -1,6 +1,4 @@
-#include "AMP/vectors/data/device/DeviceDataHelpers.h"
 #include "AMP/vectors/data/device/DeviceDataHelpers.hpp"
-
 
 // Explicit instantiations
 template class AMP::LinearAlgebra::DeviceDataHelpers<double>;

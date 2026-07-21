@@ -1,13 +1,12 @@
 #include "AMP/IO/PIO.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/operations/spgemm/CSRMatrixSpGEMMCommon.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/device/Device.h"
 
 #ifdef AMP_USE_DEVICE
-    #include <thrust/device_vector.h>
-    #include <thrust/execution_policy.h>
-    #include <thrust/transform.h>
     #define AMP_FUNCTION_HD __host__ __device__
 #else
     #define AMP_FUNCTION_HD
@@ -289,7 +288,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( d_stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_count_all );
@@ -336,7 +335,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( d_stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_fill_all );

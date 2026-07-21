@@ -2,6 +2,7 @@
 #define included_AMP_VectorDataDefault_hpp
 
 #include "AMP/IO/RestartManager.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/data/VectorDataDefault.h"
 #include <cstring>
@@ -53,12 +54,14 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( size_t start,
     PROFILE( "VectorDataDefault::constructor" );
 
     static_assert( std::is_same_v<typename Allocator::value_type, void> );
+
+    auto stream        = AMP::AMPManager::getDefaultComputeStream();
     this->d_localSize  = localSize;
     this->d_globalSize = globalSize;
     this->d_localStart = start;
     this->d_data_owned = true;
-    this->d_data       = this->d_alloc.allocate( localSize );
-    AMP::Utilities::Algorithms::zero_n( this->d_data, localSize, d_memory_location );
+    this->d_data       = this->d_alloc.allocate( localSize, stream );
+    AMP::Utilities::Algorithms::zero_n( this->d_data, localSize, d_memory_location, stream );
 }
 
 template<typename TYPE, class Allocator>
@@ -82,7 +85,8 @@ template<typename TYPE, class Allocator>
 VectorDataDefault<TYPE, Allocator>::~VectorDataDefault()
 {
     if ( this->d_data_owned ) {
-        this->d_alloc.deallocate( this->d_data, this->d_localSize );
+        auto stream = AMP::AMPManager::getDefaultComputeStream();
+        this->d_alloc.deallocate( this->d_data, this->d_localSize, stream );
     }
 }
 
@@ -349,7 +353,8 @@ VectorDataDefault<TYPE, Allocator>::VectorDataDefault( int64_t fid,
 {
     AMP::Array<TYPE> data;
     IO::readHDF5( fid, "data", data );
-    d_data = this->d_alloc.allocate( this->d_localSize );
+    auto stream = AMP::AMPManager::getDefaultComputeStream();
+    d_data      = this->d_alloc.allocate( this->d_localSize, stream );
     putRawData( data.data(), getTypeID<TYPE>(), AMP::Utilities::MemoryType::host );
 }
 

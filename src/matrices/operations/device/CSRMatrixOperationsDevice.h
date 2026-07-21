@@ -141,18 +141,6 @@ public:
      */
     void copy( const MatrixData &X, MatrixData &Y ) override;
 
-    /** \brief  Set Y matrix with the same non-zero and distributed structure
-     * as x and copy the coefficients after up/down casting
-     * \param[in] X  matrix data to copy from
-     * \param[in] Y  matrix data to copy to after up/down casting the coefficients
-     */
-    void copyCast( const MatrixData &X, MatrixData &Y ) override;
-
-    template<typename ConfigIn>
-    static void
-    copyCast( CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X,
-              matrixdata_t *Y );
-
     std::string type() const override { return "CSRMatrixOperationsDevice"; }
 
     /**

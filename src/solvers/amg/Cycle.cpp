@@ -207,13 +207,14 @@ std::string_view KappaKCycle::krylovTypeName( const KappaKCycle::krylov_type kt 
     }
 }
 
-void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> &levels )
+void save_hierarchy( [[maybe_unused]] std::string_view base_name,
+                     [[maybe_unused]] const std::vector<KCycleLevel> &levels )
 {
 #ifndef AMP_USE_HDF5
     AMP_WARN_ONCE( "AMP::Solver::AMG::save_hierarchy requires that AMP be built with HDF5 enabled. "
                    "No Hierarchy information will be saved" );
     return;
-#endif
+#else
     for ( size_t nl = 0; nl < levels.size(); ++nl ) {
         // create file name for A
         const auto fname_A = std::string( base_name ) + "_Level" + std::to_string( nl ) + "_A";
@@ -256,6 +257,7 @@ void save_hierarchy( std::string_view base_name, const std::vector<KCycleLevel> 
             } );
         }
     }
+#endif
 }
 
 } // namespace AMP::Solver::AMG

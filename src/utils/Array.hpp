@@ -8,7 +8,6 @@
 #include "AMP/utils/TypeTraits.h"
 #include "AMP/utils/UtilityMacros.h"
 
-
 #include <algorithm>
 #include <cmath>
 #include <complex>
@@ -62,7 +61,7 @@
     template bool AMP::Array<TYPE,FUN,A>::operator==( const AMP::Array<TYPE,FUN,A>& ) const; \
     template bool AMP::Array<TYPE,FUN,A>::operator!=( const AMP::Array<TYPE,FUN,A>& ) const
 #define instantiateArrayConstructors( TYPE )                              \
-    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, std::allocator<void> )
+    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, AMP::HostAllocator<void> )
 #define PACK_UNPACK_ARRAY( TYPE )                                         \
     template size_t AMP::packSize( const AMP::Array<TYPE> & );            \
     template size_t AMP::pack( const AMP::Array<TYPE> &, std::byte * );   \
@@ -269,7 +268,7 @@ void Array<TYPE, FUN, Allocator>::allocate( const ArraySize &N )
     size_t length = d_size.length();
     if ( length > 0 ) {
         try {
-            d_data = d_alloc.allocate( length );
+            d_data = d_alloc.allocate( length, nullptr );
             if constexpr ( !std::is_trivially_copyable<TYPE>::value ) {
                 for ( size_t i = 0; i < length; ++i )
                     new ( d_data + i ) TYPE();

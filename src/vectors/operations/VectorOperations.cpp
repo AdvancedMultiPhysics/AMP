@@ -18,6 +18,11 @@ namespace AMP::LinearAlgebra {
 VectorOperations::VectorOperations() : d_hash( reinterpret_cast<uint64_t>( this ) ) {}
 
 /****************************************************************
+ * Copy does casting for native representations                  *
+ ****************************************************************/
+void VectorOperations::copyCast( const VectorData &x, VectorData &z ) { this->copy( x, z ); }
+
+/****************************************************************
  * equals                                                        *
  * Note: these routines require communication                    *
  ****************************************************************/

@@ -1,6 +1,8 @@
 #include "AMP/utils/KokkosManager.h"
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 
 #include <cstdio>
 #include <string>
@@ -25,31 +27,32 @@ void initializeKokkos( int &argc_in, char *argv_in[], const AMPManagerProperties
             if ( strncmp( argv_in[i], "--kokkos-", 9 ) == 0 )
                 std::swap( argv_in[i], argv_in[--argc_in] );
         }
-        char *argv[1024] = { nullptr };
-        for ( int i = 0; i < argc; i++ )
-            argv[i] = argv_in[i];
         // Set some basic environmental variables
         if ( getenv( "OMP_PROC_BIND" ).empty() )
             setenv( "OMP_PROC_BIND", "false" );
         // Check if we need to set the number of threads
         bool setThreads = !getenv( "OMP_NUM_THREADS" ).empty();
         for ( int i = 0; i < argc; i++ ) {
-            setThreads = setThreads || strncmp( argv[i], "--threads", 9 ) == 0;
-            setThreads = setThreads || strncmp( argv[i], "--kokkos-threads", 16 ) == 0;
-            setThreads = setThreads || strncmp( argv[i], "--kokkos-num-threads", 20 ) == 0;
+            setThreads = setThreads || strncmp( argv_in[i], "--threads", 9 ) == 0;
+            setThreads = setThreads || strncmp( argv_in[i], "--kokkos-threads", 16 ) == 0;
+            setThreads = setThreads || strncmp( argv_in[i], "--kokkos-num-threads", 20 ) == 0;
         }
-        char threadArg[1024];
+        int N_threads = 1;
         if ( !setThreads ) {
-            int N_threads = 1;
             if ( properties.default_OpenMP_threads != 0 )
                 N_threads = properties.default_OpenMP_threads;
             if ( properties.default_Kokkos_threads != 0 )
                 N_threads = properties.default_Kokkos_threads;
-            snprintf( threadArg, sizeof( threadArg ), "--kokkos-num-threads=%i\n", N_threads );
-            argv[argc++] = threadArg;
         }
         // Initialize kokkos
-        Kokkos::initialize( argc, argv );
+    #ifdef AMP_USE_DEVICE
+        int id;
+        deviceId( &id );
+        Kokkos::initialize(
+            Kokkos::InitializationSettings().set_num_threads( N_threads ).set_device_id( id ) );
+    #else
+        Kokkos::initialize( Kokkos::InitializationSettings().set_num_threads( N_threads ) );
+    #endif
         AMP_CalledKokkosInit = true;
     } else {
         AMP_CalledKokkosInit = false;
@@ -57,6 +60,7 @@ void initializeKokkos( int &argc_in, char *argv_in[], const AMPManagerProperties
 }
 void finalizeKokkos()
 {
+    AccelerationContext::default_context.freeKokkosExec();
     if ( AMP_CalledKokkosInit && !Kokkos::is_finalized() )
         Kokkos::finalize();
 }

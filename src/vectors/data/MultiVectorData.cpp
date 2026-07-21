@@ -391,6 +391,15 @@ void MultiVectorData::makeConsistent()
 {
     PROFILE( "MultiVectorData::makeConsistent" );
 
+    // always stream sync for managed in case downstream usage is on host
+    for ( size_t i = 0; i < d_data.size(); ++i ) {
+        if ( this->getMemoryLocation( i ) == AMP::Utilities::MemoryType::managed ) {
+            [[maybe_unused]] auto stream = AMP::AMPManager::getDefaultComputeStream();
+            deviceStreamSynchronize( stream );
+            break;
+        }
+    }
+
     if ( getGlobalUpdateStatus() == UpdateState::UNCHANGED )
         return;
     for ( const auto &data : d_data )

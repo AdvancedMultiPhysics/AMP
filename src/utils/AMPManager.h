@@ -2,10 +2,12 @@
 #define included_AMP_AMPManager
 
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/device/Device.h"
 
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -17,7 +19,6 @@ class abort_error;
 
 
 namespace AMP {
-
 
 /*!
  * @brief Class AMPManagerProperties is a class that contains the various startup options for AMP
@@ -162,7 +163,7 @@ public:
     static std::tuple<int, const char *const *> get_args();
 
     //! Function to return the AMPManagerProperties that was used to initialize AMP
-    static AMPManagerProperties getAMPManagerProperties();
+    static AMPManagerProperties &getAMPManagerProperties();
 
     //! Static function to terminate AMP
     static void terminate_AMP( std::string message );
@@ -200,6 +201,9 @@ public:
 
     //! Get the global comm
     static const AMP::AMP_MPI &getCommWorld();
+
+    //! Get AMP's default compute stream for GPU offloading
+    static AMP::Utilities::ComputeStream getDefaultComputeStream();
 
     //! Set the global comm
     static void setCommWorld( const AMP::AMP_MPI & );

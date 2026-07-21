@@ -2,6 +2,7 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/PIO.h"
 #include "AMP/utils/AMP_MPI.h"
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/KokkosManager.h"
 #include "AMP/utils/Utilities.h"
 
@@ -14,10 +15,6 @@
 // clang-format off
 #ifdef AMP_USE_OPENMP
     #include <omp.h>
-#endif
-
-#ifdef AMP_USE_DEVICE
-    #include "AMP/utils/device/Device.h"
 #endif
 
 #ifdef AMP_USE_TIMER
@@ -64,7 +61,6 @@ const char *const *AMPManager::d_argv         = nullptr;
 AMPManagerProperties AMPManager::d_properties = AMPManagerProperties();
 std::vector<std::function<void()>> AMPManager::d_atShutdown;
 
-
 /****************************************************************************
  *  Get the global communicator                                              *
  ****************************************************************************/
@@ -72,6 +68,13 @@ static AMP_MPI comm_world = AMP::AMP_MPI( AMP_COMM_NULL );
 const AMP_MPI &AMPManager::getCommWorld() { return comm_world; }
 void AMPManager::setCommWorld( const AMP::AMP_MPI &comm ) { comm_world = comm; }
 
+/****************************************************************************
+ *  Get the default GPU compute stream, nullptr on host-only builds          *
+ ****************************************************************************/
+AMP::Utilities::ComputeStream AMPManager::getDefaultComputeStream()
+{
+    return AMP::Utilities::AccelerationContext::default_context.getStream();
+}
 
 /****************************************************************************
  * Functions to count resources                                              *
@@ -230,6 +233,8 @@ void AMPManager::shutdown()
                 static_cast<int>( AMP_MPI::MPI_Comm_created() ),
                 static_cast<int>( AMP_MPI::MPI_Comm_destroyed() ) );
     }
+    // free device compute stream
+    AMP::Utilities::AccelerationContext::default_context.freeStream();
     // Clear input arguments
     for ( int i = 0; i < d_argc; i++ )
         delete[] d_argv[i];
@@ -298,7 +303,7 @@ void AMPManager::registerShutdown( std::function<void()> fun ) { d_atShutdown.pu
 
 
 /****************************************************************************
- * Function to start/stop CUDA                                               *
+ * Functions to start/stop HIP/Cuda                                          *
  ****************************************************************************/
 double AMPManager::initDevices()
 {
@@ -317,26 +322,19 @@ double AMPManager::bindDevices()
         return 0;
     auto start = std::chrono::steady_clock::now();
 #ifdef AMP_USE_DEVICE
-
     if ( d_properties.bind_process_to_accelerator ) {
         AMP::Utilities::setenv( "RDMAV_FORK_SAFE", "1" );
         auto nodeComm = comm_world.splitByNode();
         auto nodeRank = nodeComm.getRank();
         int deviceCount;
-
         deviceGetCount( &deviceCount ); // How many GPUs?
         int device_id = nodeRank % deviceCount;
         deviceBind( device_id ); // Map MPI-process to a GPU
+        deviceSynchronize();
     }
-
-    void *tmp;
-    deviceMallocManaged( &tmp, 10, deviceMemAttachGlobal );
-    deviceFree( tmp );
-
 #endif
     return getDuration( start );
 }
-
 
 /****************************************************************************
  * Initialize OpenMP                                                         *
@@ -394,7 +392,7 @@ std::tuple<int, const char *const *> AMPManager::get_args()
     return std::tuple<int, const char *const *>( d_argc, d_argv );
 }
 
-AMPManagerProperties AMPManager::getAMPManagerProperties()
+AMPManagerProperties &AMPManager::getAMPManagerProperties()
 {
     AMP_INSIST( d_initialized, "AMP has not been initialized" );
     return d_properties;

@@ -90,17 +90,6 @@ public:
      */
     static void copy( std::shared_ptr<const LocalMatrixData> X,
                       std::shared_ptr<LocalMatrixData> Y );
-
-    /** \brief  Set Y matrix with the same non-zero and distributed structure
-     * as X and copy the coefficients after up/down casting
-     * \param[in] X  matrix data to copy from
-     * \param[in] Y  matrix data to copy to after up/down casting the coefficients
-     */
-    template<typename ConfigIn>
-    static void
-    copyCast( std::shared_ptr<
-                  CSRLocalMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>>> X,
-              std::shared_ptr<LocalMatrixData> Y );
 };
 
 } // namespace AMP::LinearAlgebra

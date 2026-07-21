@@ -1,6 +1,7 @@
 #ifndef included_AMP_MatrixParametersBase
 #define included_AMP_MatrixParametersBase
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/Utilities.h"
 #include "AMP/vectors/Variable.h"

@@ -42,7 +42,8 @@ public:
           C_offd( C->getOffdMatrix() ),
           d_num_rows( static_cast<lidx_t>( A->numLocalRows() ) ),
           comm( A->getComm() ),
-          d_csr_comm( A->getRightCommList() )
+          d_csr_comm( A->getRightCommList() ),
+          d_stream( C->d_acceleration_context.getStream() )
     {
         AMP_INSIST( comm == B->getComm() && comm == C->getComm(),
                     "CSRMatrixSpGEMMCommon: All three matrices must have the same communicator" );
@@ -91,6 +92,8 @@ protected:
     // Communicator
     AMP_MPI comm;
     CSRMatrixCommunicator<Config> d_csr_comm;
+
+    const AMP::Utilities::ComputeStream d_stream;
 
     // To overlap comms and calcs it is easiest to form the output in four
     // blocks and merge them together at the end

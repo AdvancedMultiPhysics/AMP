@@ -89,8 +89,8 @@ void CSRMatrixOperationsKokkos<Config>::mult( std::shared_ptr<const Vector> in,
                                1.0,
                                outDataBlock,
                                outData->getMemoryLocation() );
-        fence();
     }
+    outData->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -127,6 +127,8 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
                                         diagMatrix,
                                         outDataBlock,
                                         outData->getMemoryLocation() );
+        outData->setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        outData->makeConsistent();
     }
 
     if ( csrData->hasOffDiag() ) {
@@ -136,26 +138,35 @@ void CSRMatrixOperationsKokkos<Config>::multTranspose( std::shared_ptr<const Vec
         // of the colMap from inside offdMatrix
         std::vector<size_t> rcols;
         offdMatrix->getColumnMap( rcols );
-
-        Kokkos::View<scalar_t *, Kokkos::LayoutRight, typename localops_t::csr_memspace_t> vvals_d(
-            "multTrans vvals", rcols.size() );
+        auto vvals_d = offdMatrix->makeScalarArray( rcols.size() );
+        AMP::Utilities::Algorithms::zero_n( vvals_d.get(),
+                                            rcols.size(),
+                                            localmatrixdata_t::d_memory_location,
+                                            csrData->d_acceleration_context.getStream() );
+        std::vector<scalar_t> vvals_h( rcols.size() );
 
         d_localops_offd->multTranspose( inDataBlock,
                                         inData->getMemoryLocation(),
                                         offdMatrix,
-                                        vvals_d.data(),
+                                        vvals_d.get(),
                                         localmatrixdata_t::d_memory_location );
 
         // now copy vvals_d back to host to write out
-        auto vvals_h = Kokkos::create_mirror_view_and_copy( Kokkos::HostSpace{}, vvals_d );
-        fence();
+        AMP::Utilities::Algorithms::copy_n( vvals_h.data(),
+                                            AMP::Utilities::MemoryType::host,
+                                            vvals_d.get(),
+                                            localmatrixdata_t::d_memory_location,
+                                            rcols.size(),
+                                            csrData->d_acceleration_context.getStream() );
+        if constexpr ( Config::device_accessible ) {
+            csrData->d_acceleration_context.synchronizeStream();
+        }
 
         // copy rcols and vvals into std::vectors and write out
         outData->addValuesByGlobalID(
             rcols.size(), rcols.data(), vvals_h.data(), AMP::Utilities::MemoryType::host );
-    } else {
-        fence(); // still finish with a fence if no offd term present
     }
+    outData->setUpdateStatus( UpdateState::ADDING );
 }
 
 template<typename Config>
@@ -178,8 +189,6 @@ void CSRMatrixOperationsKokkos<Config>::scale( AMP::Scalar alpha_in, MatrixData 
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->scale( alpha, offdMatrix );
     }
-
-    fence();
 }
 
 template<typename Config>
@@ -257,7 +266,7 @@ void CSRMatrixOperationsKokkos<Config>::matMatMult( std::shared_ptr<MatrixData> 
 
     // construct SpGEMM helper and call multiply
     #ifdef AMP_USE_KOKKOSKERNELS
-    if constexpr ( alloc_info<Config::allocator>::device_accessible ) {
+    if constexpr ( Config::device_accessible ) {
         CSRMatrixSpGEMMKokkos<Config, Kokkos::DefaultExecutionSpace> spgemm(
             csrDataA, csrDataB, csrDataC );
         spgemm.multiply();
@@ -311,8 +320,6 @@ void CSRMatrixOperationsKokkos<Config>::axpy( AMP::Scalar alpha_in,
     if ( csrDataX->hasOffDiag() ) {
         d_localops_offd->axpy( alpha, offdMatrixX, offdMatrixY );
     }
-
-    fence();
 }
 
 template<typename Config>
@@ -335,8 +342,6 @@ void CSRMatrixOperationsKokkos<Config>::setScalar( AMP::Scalar alpha_in, MatrixD
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->setScalar( alpha, offdMatrix );
     }
-
-    fence();
 }
 
 template<typename Config>
@@ -365,8 +370,6 @@ void CSRMatrixOperationsKokkos<Config>::setDiagonal( std::shared_ptr<const Vecto
     AMP_DEBUG_ASSERT( diagMatrix );
 
     d_localops_diag->setDiagonal( vvals_p, in->getMemoryLocation(), diagMatrix );
-
-    fence();
 }
 
 template<typename Config>
@@ -384,8 +387,6 @@ void CSRMatrixOperationsKokkos<Config>::setIdentity( MatrixData &A )
 
     AMP_DEBUG_ASSERT( diagMatrix );
     d_localops_diag->setIdentity( diagMatrix );
-
-    fence();
 }
 
 template<typename Config>
@@ -405,7 +406,7 @@ void CSRMatrixOperationsKokkos<Config>::extractDiagonal( MatrixData const &A,
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     d_localops_diag->extractDiagonal( diagMatrix, buf_p, buf->getMemoryLocation() );
 
-    fence();
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -428,12 +429,11 @@ void CSRMatrixOperationsKokkos<Config>::getRowSums( MatrixData const &A,
 
     d_localops_diag->getRowSums(
         csrData->getDiagMatrix(), rawVecData, buf->getMemoryLocation(), true );
-    fence();
     if ( csrData->hasOffDiag() ) {
         d_localops_offd->getRowSums(
             csrData->getOffdMatrix(), rawVecData, buf->getMemoryLocation(), false );
-        fence();
     }
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -458,7 +458,6 @@ void CSRMatrixOperationsKokkos<Config>::getRowSumsAbsolute( MatrixData const &A,
     bool initialize_to_zero = true;
     d_localops_diag->getRowSumsAbsolute(
         csrData->getDiagMatrix(), rawVecData, buf->getMemoryLocation(), initialize_to_zero, false );
-    fence();
     if ( csrData->hasOffDiag() ) {
         initialize_to_zero = false;
         d_localops_offd->getRowSumsAbsolute( csrData->getOffdMatrix(),
@@ -466,8 +465,8 @@ void CSRMatrixOperationsKokkos<Config>::getRowSumsAbsolute( MatrixData const &A,
                                              buf->getMemoryLocation(),
                                              initialize_to_zero,
                                              remove_zeros );
-        fence();
     }
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -494,7 +493,6 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
                                          localmatrixdata_t::d_memory_location,
                                          initialize_to_zero,
                                          remove_zeros );
-    fence();
     if ( csrData->hasOffDiag() ) {
         initialize_to_zero = false;
         d_localops_offd->getRowSumsAbsolute( offdMatrix,
@@ -502,12 +500,12 @@ AMP::Scalar CSRMatrixOperationsKokkos<Config>::LinfNorm( MatrixData const &A ) c
                                              localmatrixdata_t::d_memory_location,
                                              initialize_to_zero,
                                              remove_zeros );
-        fence();
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = AMP::Utilities::Algorithms::max_element( sums.data(), nRows, Config::mem_loc );
-    AMP_MPI comm  = csrData->getComm();
+    auto max_norm = AMP::Utilities::Algorithms::max_element(
+        sums.data(), nRows, Config::mem_loc, csrData->d_acceleration_context.getStream() );
+    AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
 
@@ -536,64 +534,6 @@ void CSRMatrixOperationsKokkos<Config>::copy( const MatrixData &X, MatrixData &Y
     d_localops_diag->copy( diagMatrixX, diagMatrixY );
     if ( csrDataX->hasOffDiag() ) {
         d_localops_offd->copy( offdMatrixX, offdMatrixY );
-    }
-
-    fence();
-}
-
-template<typename Config>
-void CSRMatrixOperationsKokkos<Config>::copyCast( const MatrixData &X, MatrixData &Y )
-{
-    PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
-
-    // both X and Y must be CSRMatrixData's
-    const auto mode_x = static_cast<csr_mode>( X.mode() ),
-               mode_y = static_cast<csr_mode>( Y.mode() );
-    AMP_ASSERT( mode_x != csr_mode::other && mode_y != csr_mode::other );
-
-    // copyCast is only for handling the scalar values
-    // memory location and index types need to match
-    AMP_ASSERT( get_alloc( mode_x ) == get_alloc( mode_y ) );
-    AMP_ASSERT( get_lidx( mode_x ) == get_lidx( mode_y ) );
-    AMP_ASSERT( get_gidx( mode_x ) == get_gidx( mode_y ) );
-
-    auto csrDataY = getCSRMatrixData<Config>( Y );
-    AMP_DEBUG_ASSERT( csrDataY );
-    if ( X.getCoeffType() == getTypeID<double>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f64>;
-        auto csrDataX  = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else if ( X.getCoeffType() == getTypeID<float>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f32>;
-        auto csrDataX  = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else {
-        AMP_ERROR( "Can't copyCast from the given matrix, policy not supported" );
-    }
-}
-
-template<typename Config>
-template<typename ConfigIn>
-void CSRMatrixOperationsKokkos<Config>::copyCast( CSRMatrixData<ConfigIn> *X, matrixdata_t *Y )
-{
-    PROFILE( "CSRMatrixOperationsKokkos::copyCast" );
-
-    auto diagMatrixX = X->getDiagMatrix();
-    auto offdMatrixX = X->getOffdMatrix();
-
-    auto diagMatrixY = Y->getDiagMatrix();
-    auto offdMatrixY = Y->getOffdMatrix();
-
-    AMP_DEBUG_ASSERT( diagMatrixX && offdMatrixX );
-    AMP_DEBUG_ASSERT( diagMatrixY && offdMatrixY );
-
-    localops_t::template copyCast<ConfigIn>( diagMatrixX, diagMatrixY );
-    if ( X->hasOffDiag() ) {
-        localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
 }
 

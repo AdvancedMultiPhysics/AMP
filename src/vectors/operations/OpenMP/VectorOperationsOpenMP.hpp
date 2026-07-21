@@ -2,7 +2,6 @@
 #define included_AMP_VectorOperationsOpenMP_hpp
 
 #include "AMP/utils/Utilities.h"
-#include "AMP/utils/copycast/CopyCast.hpp"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/OpenMP/VectorOperationsOpenMP.h"
@@ -24,8 +23,26 @@ extern template class VectorOperationsOpenMP<float>;  // Suppresses implicit ins
 template<typename TYPE>
 std::shared_ptr<VectorOperations> VectorOperationsOpenMP<TYPE>::cloneOperations() const
 {
-    auto ptr = std::make_shared<VectorOperationsOpenMP<TYPE>>();
-    return ptr;
+    return std::make_shared<VectorOperationsOpenMP<TYPE>>();
+}
+
+//**********************************************************************
+// support for default operations fallbacks
+template<typename TYPE>
+inline VectorOperationsDefault<TYPE> &VectorOperationsOpenMP<TYPE>::getDefaultOps( void )
+{
+    if ( !d_default_ops )
+        d_default_ops = std::make_shared<VectorOperationsDefault<TYPE>>();
+    return *d_default_ops;
+}
+
+template<typename TYPE>
+inline const VectorOperationsDefault<TYPE> &
+VectorOperationsOpenMP<TYPE>::getDefaultOps( void ) const
+{
+    if ( !d_default_ops )
+        d_default_ops = std::make_shared<VectorOperationsDefault<TYPE>>();
+    return *d_default_ops;
 }
 
 //**********************************************************************
@@ -103,37 +120,7 @@ void VectorOperationsOpenMP<TYPE>::copy( const VectorData &x, VectorData &y )
 {
     PROFILE( "VectorOperationsOpenMP::copy" );
 
-    AMP_ASSERT( y.getLocalSize() == x.getLocalSize() );
-    std::copy( x.begin<TYPE>(), x.end<TYPE>(), y.begin<TYPE>() );
-    y.copyGhostValues( x );
-}
-
-template<typename TYPE>
-void VectorOperationsOpenMP<TYPE>::copyCast( const VectorData &x, VectorData &y )
-{
-    PROFILE( "VectorOperationsOpenMP::copyCast" );
-
-    constexpr auto OpenMP = AMP::Utilities::Backend::OpenMP;
-    if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
-        for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
-            auto ydata = y.getRawDataBlock<TYPE>( block_id );
-            auto N     = y.sizeOfDataBlock( block_id );
-            AMP_ASSERT( N == x.sizeOfDataBlock( block_id ) );
-            if ( x.getType( 0 ) == getTypeID<float>() ) {
-                auto xdata = x.getRawDataBlock<float>( block_id );
-                AMP::Utilities::copyCast<float, TYPE, OpenMP>( N, xdata, ydata );
-            } else if ( x.getType( 0 ) == getTypeID<double>() ) {
-                auto xdata = x.getRawDataBlock<double>( block_id );
-                AMP::Utilities::copyCast<double, TYPE, OpenMP>( N, xdata, ydata );
-            } else {
-                AMP_ERROR( "CopyCast only implemented for float or doubles." );
-            }
-        }
-    } else {
-        AMP_ERROR( "Different number of blocks; CopyCast not implemented for non-matching "
-                   "multiblock data." );
-    }
-    y.copyGhostValues( x );
+    getDefaultOps().copy( x, y );
 }
 
 template<typename TYPE>

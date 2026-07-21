@@ -1,6 +1,7 @@
 #ifndef included_AMP_VectorOperationsDevice_hpp
 #define included_AMP_VectorOperationsDevice_hpp
 
+#include "AMP/utils/AccelerationContext.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
@@ -77,23 +78,7 @@ void VectorOperationsDevice<TYPE>::zero( VectorData &x )
 {
     PROFILE( "VectorOperationsDevice::zero" );
 
-    bool useGPU = checkData( x );
-    if ( useGPU ) {
-        TYPE *data = x.getRawDataBlock<TYPE>( 0 );
-        size_t N   = x.sizeOfDataBlock( 0 );
-        AMP::Utilities::Algorithms::zero_n( data, N, x.getMemoryLocation() );
-    } else {
-        // Default to cpu version
-        auto curMe = x.begin<TYPE>();
-        auto last  = x.end<TYPE>();
-        while ( curMe != last ) {
-            *curMe = 0.0;
-            ++curMe;
-        }
-    }
-    x.fillGhosts( 0.0 );
-    // Override the status state since we set the ghost values
-    x.setUpdateStatus( UpdateState::UNCHANGED );
+    setToScalar( TYPE{ 0 }, x );
 }
 
 template<typename TYPE>
@@ -106,7 +91,12 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
     if ( useGPU ) {
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        AMP::Utilities::Algorithms::fill_n( data, N, alpha, x.getMemoryLocation() );
+        AMP::Utilities::Algorithms::fill_n(
+            data,
+            N,
+            alpha,
+            x.getMemoryLocation(),
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to cpu version
         auto curMe = x.begin<TYPE>();
@@ -119,6 +109,7 @@ void VectorOperationsDevice<TYPE>::setToScalar( const Scalar &alpha_in, VectorDa
     x.fillGhosts( alpha );
     // Override the status state since we set the ghost values
     x.setUpdateStatus( UpdateState::UNCHANGED );
+    x.makeConsistent(); // stream syncs for managed, no-op otherwise
 }
 
 template<typename TYPE>
@@ -129,7 +120,8 @@ void VectorOperationsDevice<TYPE>::setRandomValues( VectorData &x )
     AMP_ASSERT( x.numberOfDataBlocks() == 1 );
     TYPE *data     = x.getRawDataBlock<TYPE>( 0 );
     const size_t N = x.sizeOfDataBlock( 0 );
-    DeviceOperationsHelpers<TYPE>::setRandomValues( N, data );
+    DeviceOperationsHelpers<TYPE>::setRandomValues(
+        N, data, AMP::Utilities::AccelerationContext::default_context.getStream() );
     // Call makeConsistent to leave the vector in a consistent state
     x.makeConsistent( ScatterType::CONSISTENT_SET );
 }
@@ -143,34 +135,6 @@ void VectorOperationsDevice<TYPE>::copy( const VectorData &x, VectorData &y )
 }
 
 template<typename TYPE>
-void VectorOperationsDevice<TYPE>::copyCast( const VectorData &x, VectorData &y )
-{
-    PROFILE( "VectorOperationsDevice::copyCast" );
-
-    constexpr auto Hip_Cuda = AMP::Utilities::Backend::Hip_Cuda;
-    if ( x.numberOfDataBlocks() == y.numberOfDataBlocks() ) {
-        for ( size_t block_id = 0; block_id < y.numberOfDataBlocks(); block_id++ ) {
-            auto ydata = y.getRawDataBlock<TYPE>( block_id );
-            auto N     = y.sizeOfDataBlock( block_id );
-            AMP_ASSERT( N == x.sizeOfDataBlock( block_id ) );
-            if ( x.getType( 0 ) == getTypeID<float>() ) {
-                auto xdata = x.getRawDataBlock<float>( block_id );
-                AMP::Utilities::copyCast<float, TYPE, Hip_Cuda>( N, xdata, ydata );
-            } else if ( x.getType( 0 ) == getTypeID<double>() ) {
-                auto xdata = x.getRawDataBlock<double>( block_id );
-                AMP::Utilities::copyCast<double, TYPE, Hip_Cuda>( N, xdata, ydata );
-            } else {
-                AMP_ERROR( "CopyCast only implemented for float or doubles." );
-            }
-        }
-    } else {
-        AMP_ERROR( "Different number of blocks; CopyCast not implemented for non-matching "
-                   "multiblock data." );
-    }
-    y.copyGhostValues( x );
-}
-
-template<typename TYPE>
 void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in, VectorData &x )
 {
     PROFILE( "VectorOperationsDevice::scale" );
@@ -179,8 +143,9 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in, VectorData &x 
         TYPE *data = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::scale( alpha, N, data );
-        x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::scale(
+            alpha, N, data, AMP::Utilities::AccelerationContext::default_context.getStream() );
+        x.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->scale( alpha_in, x );
@@ -199,8 +164,13 @@ void VectorOperationsDevice<TYPE>::scale( const Scalar &alpha_in,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto N     = y.sizeOfDataBlock( 0 );
         auto alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::scale( alpha, N, xdata, ydata );
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::scale(
+            alpha,
+            N,
+            xdata,
+            ydata,
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->scale( alpha_in, x, y );
@@ -217,8 +187,13 @@ void VectorOperationsDevice<TYPE>::add( const VectorData &x, const VectorData &y
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         auto N     = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::add( N, xdata, ydata, zdata );
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::add(
+            N,
+            xdata,
+            ydata,
+            zdata,
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->add( x, y, z );
@@ -237,8 +212,13 @@ void VectorOperationsDevice<TYPE>::subtract( const VectorData &x,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::subtract( N, xdata, ydata, zdata );
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::subtract(
+            N,
+            xdata,
+            ydata,
+            zdata,
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->subtract( x, y, z );
@@ -257,8 +237,13 @@ void VectorOperationsDevice<TYPE>::multiply( const VectorData &x,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::multiply( N, xdata, ydata, zdata );
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::multiply(
+            N,
+            xdata,
+            ydata,
+            zdata,
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->multiply( x, y, z );
@@ -275,8 +260,13 @@ void VectorOperationsDevice<TYPE>::divide( const VectorData &x, const VectorData
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::divide( N, xdata, ydata, zdata );
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::divide(
+            N,
+            xdata,
+            ydata,
+            zdata,
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->divide( x, y, z );
@@ -293,8 +283,9 @@ void VectorOperationsDevice<TYPE>::reciprocal( const VectorData &x, VectorData &
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::reciprocal( N, xdata, ydata );
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::reciprocal(
+            N, xdata, ydata, AMP::Utilities::AccelerationContext::default_context.getStream() );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->reciprocal( x, y );
@@ -318,8 +309,15 @@ void VectorOperationsDevice<TYPE>::linearSum( const Scalar &alpha_in,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         auto zdata = z.getRawDataBlock<TYPE>( 0 );
         size_t N   = z.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::linearSum( alpha, N, xdata, beta, ydata, zdata );
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::linearSum(
+            alpha,
+            N,
+            xdata,
+            beta,
+            ydata,
+            zdata,
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->linearSum( alpha_in, x, beta_in, y, z );
@@ -357,8 +355,9 @@ void VectorOperationsDevice<TYPE>::abs( const VectorData &x, VectorData &y )
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
-        DeviceOperationsHelpers<TYPE>::abs( N, xdata, ydata );
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::abs(
+            N, xdata, ydata, AMP::Utilities::AccelerationContext::default_context.getStream() );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->abs( x, y );
@@ -377,8 +376,13 @@ void VectorOperationsDevice<TYPE>::addScalar( const VectorData &x,
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::addScalar( N, xdata, alpha, ydata );
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        DeviceOperationsHelpers<TYPE>::addScalar(
+            N,
+            xdata,
+            alpha,
+            ydata,
+            AMP::Utilities::AccelerationContext::default_context.getStream() );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->addScalar( x, alpha_in, y );
@@ -394,7 +398,9 @@ void VectorOperationsDevice<TYPE>::setMin( const Scalar &alpha_in, VectorData &y
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::setMin( N, alpha, ydata );
+        DeviceOperationsHelpers<TYPE>::setMin(
+            N, alpha, ydata, AMP::Utilities::AccelerationContext::default_context.getStream() );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->setMin( alpha_in, y );
@@ -410,7 +416,9 @@ void VectorOperationsDevice<TYPE>::setMax( const Scalar &alpha_in, VectorData &y
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = y.sizeOfDataBlock( 0 );
         TYPE alpha = alpha_in.get<TYPE>();
-        DeviceOperationsHelpers<TYPE>::setMax( N, alpha, ydata );
+        DeviceOperationsHelpers<TYPE>::setMax(
+            N, alpha, ydata, AMP::Utilities::AccelerationContext::default_context.getStream() );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         getDefaultOps()->setMax( alpha_in, y );
@@ -425,7 +433,8 @@ Scalar VectorOperationsDevice<TYPE>::localMin( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMin( N, xdata );
+        return DeviceOperationsHelpers<TYPE>::localMin(
+            N, xdata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMin( x );
@@ -440,7 +449,8 @@ Scalar VectorOperationsDevice<TYPE>::localMax( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMax( N, xdata );
+        return DeviceOperationsHelpers<TYPE>::localMax(
+            N, xdata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMax( x );
@@ -455,7 +465,8 @@ Scalar VectorOperationsDevice<TYPE>::localSum( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localSum( N, xdata );
+        return DeviceOperationsHelpers<TYPE>::localSum(
+            N, xdata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localSum( x );
@@ -470,7 +481,8 @@ Scalar VectorOperationsDevice<TYPE>::localL1Norm( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localL1Norm( N, xdata );
+        return DeviceOperationsHelpers<TYPE>::localL1Norm(
+            N, xdata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localL1Norm( x );
@@ -485,7 +497,8 @@ Scalar VectorOperationsDevice<TYPE>::localL2Norm2( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localL2Norm2( N, xdata );
+        return DeviceOperationsHelpers<TYPE>::localL2Norm2(
+            N, xdata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localL2Norm2( x );
@@ -500,7 +513,8 @@ Scalar VectorOperationsDevice<TYPE>::localMaxNorm( const VectorData &x ) const
     if ( checkData( x ) ) {
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMaxNorm( N, xdata );
+        return DeviceOperationsHelpers<TYPE>::localMaxNorm(
+            N, xdata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMaxNorm( x );
@@ -516,7 +530,8 @@ Scalar VectorOperationsDevice<TYPE>::localDot( const VectorData &x, const Vector
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localDot( N, xdata, ydata );
+        return DeviceOperationsHelpers<TYPE>::localDot(
+            N, xdata, ydata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localDot( x, y );
@@ -533,7 +548,8 @@ Scalar VectorOperationsDevice<TYPE>::localMinQuotient( const VectorData &x,
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localMinQuotient( N, xdata, ydata );
+        return DeviceOperationsHelpers<TYPE>::localMinQuotient(
+            N, xdata, ydata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localMinQuotient( x, y );
@@ -549,7 +565,8 @@ Scalar VectorOperationsDevice<TYPE>::localWrmsNorm( const VectorData &x, const V
         auto xdata = x.getRawDataBlock<TYPE>( 0 );
         auto ydata = y.getRawDataBlock<TYPE>( 0 );
         size_t N   = x.sizeOfDataBlock( 0 );
-        return DeviceOperationsHelpers<TYPE>::localWrmsNorm( N, xdata, ydata );
+        return DeviceOperationsHelpers<TYPE>::localWrmsNorm(
+            N, xdata, ydata, AMP::Utilities::AccelerationContext::default_context.getStream() );
     } else {
         // Default to VectorOperationsDefault (on cpu)
         return getDefaultOps()->localWrmsNorm( x, y );

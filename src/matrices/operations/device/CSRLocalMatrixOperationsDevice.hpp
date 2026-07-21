@@ -29,7 +29,13 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::mult(
     {
         PROFILE( "CSRLocalMatrixOperationsDevice::mult (local)" );
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::mult(
-            row_starts_d, cols_loc_d, coeffs_d, nRows, in, out );
+            row_starts_d,
+            cols_loc_d,
+            coeffs_d,
+            nRows,
+            in,
+            out,
+            A->d_acceleration_context.getStream() );
     }
 }
 
@@ -51,7 +57,8 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::scale(
 
     const auto tnnz_d = A->numberOfNonZeros();
 
-    DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::scale( tnnz_d, coeffs_d, alpha );
+    DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::scale(
+        tnnz_d, coeffs_d, alpha, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -66,7 +73,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::axpy(
 
     {
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::axpy(
-            tnnz, alpha, coeffs_d_x, coeffs_d_y );
+            tnnz, alpha, coeffs_d_x, coeffs_d_y, Y->d_acceleration_context.getStream() );
     }
 }
 
@@ -78,7 +85,8 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setScalar(
 
     const auto tnnz_d = A->numberOfNonZeros();
 
-    AMP::Utilities::Algorithms::fill_n( coeffs_d, tnnz_d, alpha, Config::mem_loc );
+    AMP::Utilities::Algorithms::fill_n(
+        coeffs_d, tnnz_d, alpha, Config::mem_loc, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -96,7 +104,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setDiagonal(
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setDiagonal(
-        row_starts_d, coeffs_d, nRows, in );
+        row_starts_d, coeffs_d, nRows, in, A->d_acceleration_context.getStream() );
 }
 
 
@@ -108,7 +116,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::extractDiagonal(
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::extractDiagonal(
-        row_starts_d, coeffs_d, nRows, buf );
+        row_starts_d, coeffs_d, nRows, buf, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -120,7 +128,8 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::setIdentity(
     auto [row_starts_d, cols_d, cols_loc_d, coeffs_d] = A->getDataFields();
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
-    DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setIdentity( row_starts_d, coeffs_d, nRows );
+    DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::setIdentity(
+        row_starts_d, coeffs_d, nRows, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -131,7 +140,7 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::LinfNorm(
     const auto nRows                                  = static_cast<lidx_t>( A->numLocalRows() );
 
     DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::LinfNorm(
-        nRows, coeffs_d, row_starts_d, rowSums );
+        nRows, coeffs_d, row_starts_d, rowSums, A->d_acceleration_context.getStream() );
 }
 
 template<typename Config, class LocalMatrixData>
@@ -144,58 +153,8 @@ void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copy(
     const auto tnnz                                           = X->numberOfNonZeros();
 
     {
-        DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::copy( tnnz, coeffs_d_x, coeffs_d_y );
-    }
-}
-
-template<typename Config, class LocalMatrixData>
-template<typename ConfigIn>
-void CSRLocalMatrixOperationsDevice<Config, LocalMatrixData>::copyCast(
-    std::shared_ptr<CSRLocalMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>>>
-        X,
-    std::shared_ptr<LocalMatrixData> Y )
-{
-    // Check compatibility
-    AMP_ASSERT( Y->d_memory_location == X->d_memory_location );
-    AMP_ASSERT( Y->beginRow() == X->beginRow() );
-    AMP_ASSERT( Y->endRow() == X->endRow() );
-    AMP_ASSERT( Y->beginCol() == X->beginCol() );
-    AMP_ASSERT( Y->endCol() == X->endCol() );
-
-    AMP_ASSERT( Y->numberOfNonZeros() == X->numberOfNonZeros() );
-
-    AMP_ASSERT( Y->numLocalRows() == X->numLocalRows() );
-    AMP_ASSERT( Y->numUniqueColumns() == X->numUniqueColumns() );
-
-    // ToDO: d_pParameters = x->d_pParameters;
-
-    // Shallow copy data structure
-    auto [X_row_starts, X_cols, X_cols_loc, X_coeffs] = X->getDataFields();
-    auto [Y_row_starts, Y_cols, Y_cols_loc, Y_coeffs] = Y->getDataFields();
-
-    // Copy column map only if off diag block
-    if ( !X->isDiag() ) {
-        auto X_col_map = X->getColumnMap();
-        auto Y_col_map = Y->getColumnMap();
-        Y_col_map      = X_col_map;
-        AMP_ASSERT( Y_col_map );
-    }
-
-    Y_row_starts = X_row_starts;
-    Y_cols       = X_cols;
-    Y_cols_loc   = X_cols_loc;
-
-    using scalar_t_in  = typename ConfigIn::scalar_t;
-    using scalar_t_out = typename Config::scalar_t;
-    if constexpr ( std::is_same_v<scalar_t_in, scalar_t_out> ) {
-        using gidx_t = typename Config::gidx_t;
-        using lidx_t = typename Config::lidx_t;
         DeviceMatrixOperations<gidx_t, lidx_t, scalar_t>::copy(
-            X->numberOfNonZeros(), X_coeffs, Y_coeffs );
-    } else {
-        AMP::Utilities::
-            copyCast<scalar_t_in, scalar_t_out, AMP::Utilities::Backend::Hip_Cuda, allocator_type>(
-                X->numberOfNonZeros(), X_coeffs, Y_coeffs );
+            tnnz, coeffs_d_x, coeffs_d_y, Y->d_acceleration_context.getStream() );
     }
 }
 

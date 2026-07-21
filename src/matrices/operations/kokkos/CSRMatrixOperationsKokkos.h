@@ -9,6 +9,7 @@
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
 #include "AMP/utils/Memory.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/Vector.h"
 
 #ifdef AMP_USE_DEVICE
@@ -40,11 +41,10 @@ public:
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
-    CSRMatrixOperationsKokkos()
-        : d_localops_diag( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_use_kokkoskernels_spgemm( false )
+    CSRMatrixOperationsKokkos() : d_use_kokkoskernels_spgemm( false )
     {
+        d_localops_diag = std::make_shared<localops_t>();
+        d_localops_offd = std::make_shared<localops_t>();
     }
 
     /** \brief  Matrix-vector multiplication
@@ -154,16 +154,6 @@ public:
      */
     void copy( const MatrixData &X, MatrixData &Y ) override;
 
-    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
-     * as x and copy the coefficients after up/down casting
-     * \param[in] x matrix data to copy from
-     * \param[in] y matrix data to copy to after up/down casting the coefficients
-     */
-    void copyCast( const MatrixData &X, MatrixData &Y ) override;
-
-    template<typename ConfigIn>
-    static void copyCast( CSRMatrixData<ConfigIn> *X, CSRMatrixData<Config> *Y );
-
     std::string type() const override { return "CSRMatrixOperationsKokkos"; }
 
     /**
@@ -174,28 +164,18 @@ public:
     void writeRestart( int64_t fid ) const override;
 
     CSRMatrixOperationsKokkos( int64_t, AMP::IO::RestartManager * )
-        : d_localops_diag( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_host, d_exec_device ) ),
-          d_use_kokkoskernels_spgemm( false )
+        : d_use_kokkoskernels_spgemm( false )
     {
+        d_localops_diag = std::make_shared<localops_t>();
+        d_localops_offd = std::make_shared<localops_t>();
     }
 
 protected:
-    Kokkos::DefaultHostExecutionSpace d_exec_host;
-    // not device on host-only builds, but also not used in that case
-    Kokkos::DefaultExecutionSpace d_exec_device;
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
 
     //! Flag to use kokkos-kernels for spgemm, no effect if kokkos-kernels unavailable
     bool d_use_kokkoskernels_spgemm;
-
-    void fence() const
-    {
-    #ifdef AMP_USE_DEVICE
-        d_exec_device.fence();
-    #endif
-    }
 };
 
 } // namespace AMP::LinearAlgebra
