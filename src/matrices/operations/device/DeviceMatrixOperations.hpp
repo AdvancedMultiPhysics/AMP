@@ -1,4 +1,5 @@
 #include "AMP/matrices/operations/device/DeviceMatrixOperations.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
 #include "AMP/utils/device/Device.h"
@@ -27,13 +28,18 @@ __global__ void mult_kernel( const L *__restrict__ row_starts,
 }
 
 template<typename G, typename L, typename S>
-void DeviceMatrixOperations<G, L, S>::mult(
-    const L *row_starts, const L *cols_loc, const S *coeffs, const size_t N, const S *in, S *out )
+void DeviceMatrixOperations<G, L, S>::mult( const L *row_starts,
+                                            const L *cols_loc,
+                                            const S *coeffs,
+                                            const size_t N,
+                                            const S *in,
+                                            S *out,
+                                            const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    mult_kernel<<<GridDim, BlockDim>>>( row_starts, cols_loc, coeffs, N, in, out );
+    setKernelDims( N, mult_kernel<L, S>, BlockDim, GridDim );
+    mult_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, cols_loc, coeffs, N, in, out );
 }
 
 // scale
@@ -47,12 +53,15 @@ __global__ void scale_kernel( const size_t N, S *__restrict__ x, const S alpha )
 }
 
 template<typename G, typename L, typename S>
-void DeviceMatrixOperations<G, L, S>::scale( const size_t N, S *x, const S alpha )
+void DeviceMatrixOperations<G, L, S>::scale( const size_t N,
+                                             S *x,
+                                             const S alpha,
+                                             const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    scale_kernel<<<GridDim, BlockDim>>>( N, x, alpha );
+    setKernelDims( N, scale_kernel<S>, BlockDim, GridDim );
+    scale_kernel<<<GridDim, BlockDim, 0, stream>>>( N, x, alpha );
 }
 
 // axpy
@@ -66,21 +75,23 @@ __global__ void axpy_kernel( const size_t N, const S alpha, S *__restrict__ x, S
 }
 
 template<typename G, typename L, typename S>
-void DeviceMatrixOperations<G, L, S>::axpy( const size_t N, const S alpha, S *x, S *y )
+void DeviceMatrixOperations<G, L, S>::axpy(
+    const size_t N, const S alpha, S *x, S *y, const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    axpy_kernel<<<GridDim, BlockDim>>>( N, alpha, x, y );
+    setKernelDims( N, axpy_kernel<S>, BlockDim, GridDim );
+    axpy_kernel<<<GridDim, BlockDim, 0, stream>>>( N, alpha, x, y );
 }
 
 // copy
 template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::copy( const size_t N,
                                             const S *__restrict__ x,
-                                            S *__restrict__ y )
+                                            S *__restrict__ y,
+                                            const AMP::Utilities::ComputeStream stream )
 {
-    deviceMemcpy( y, x, N * sizeof( S ), deviceMemcpyDeviceToDevice );
+    deviceMemcpyAsync( y, x, N * sizeof( S ), deviceMemcpyDeviceToDevice, stream );
 }
 
 // extract diagonal
@@ -100,14 +111,13 @@ template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::extractDiagonal( const L *row_starts,
                                                        const S *coeffs,
                                                        const size_t N,
-                                                       S *diag )
+                                                       S *diag,
+                                                       const AMP::Utilities::ComputeStream stream )
 {
-    AMP_ASSERT( AMP::Utilities::getMemoryType( diag ) == AMP::Utilities::getMemoryType( coeffs ) );
-
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    extractDiagonal_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N, diag );
+    setKernelDims( N, extractDiagonal_kernel<L, S>, BlockDim, GridDim );
+    extractDiagonal_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, coeffs, N, diag );
 }
 
 // set diagonal
@@ -127,14 +137,13 @@ template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::setDiagonal( const L *row_starts,
                                                    S *coeffs,
                                                    const size_t N,
-                                                   const S *diag )
+                                                   const S *diag,
+                                                   const AMP::Utilities::ComputeStream stream )
 {
-    AMP_ASSERT( AMP::Utilities::getMemoryType( diag ) == AMP::Utilities::getMemoryType( coeffs ) );
-
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    setDiagonal_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N, diag );
+    setKernelDims( N, setDiagonal_kernel<L, S>, BlockDim, GridDim );
+    setDiagonal_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, coeffs, N, diag );
 }
 
 // set identity
@@ -149,12 +158,15 @@ setIdentity_kernel( const L *__restrict__ row_starts, S *__restrict__ coeffs, co
 }
 
 template<typename G, typename L, typename S>
-void DeviceMatrixOperations<G, L, S>::setIdentity( const L *row_starts, S *coeffs, const size_t N )
+void DeviceMatrixOperations<G, L, S>::setIdentity( const L *row_starts,
+                                                   S *coeffs,
+                                                   const size_t N,
+                                                   const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    setIdentity_kernel<<<GridDim, BlockDim>>>( row_starts, coeffs, N );
+    setKernelDims( N, setIdentity_kernel<L, S>, BlockDim, GridDim );
+    setIdentity_kernel<<<GridDim, BlockDim, 0, stream>>>( row_starts, coeffs, N );
 }
 
 // Linf norms
@@ -181,12 +193,13 @@ template<typename G, typename L, typename S>
 void DeviceMatrixOperations<G, L, S>::LinfNorm( const size_t N,
                                                 const S *x,
                                                 const L *row_starts,
-                                                S *row_sums )
+                                                S *row_sums,
+                                                const AMP::Utilities::ComputeStream stream )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( N, BlockDim, GridDim );
-    LinfNorm_kernel<<<GridDim, BlockDim>>>( N, x, row_starts, row_sums );
+    setKernelDims( N, LinfNorm_kernel<L, S>, BlockDim, GridDim );
+    LinfNorm_kernel<<<GridDim, BlockDim, 0, stream>>>( N, x, row_starts, row_sums );
 }
 
 } // namespace LinearAlgebra

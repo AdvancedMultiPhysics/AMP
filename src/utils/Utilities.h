@@ -122,6 +122,15 @@ std::string strrep( const std::string &str, const std::string &s, const std::str
 
 
 /*!
+ * Case insensitive version of strncmp
+ * \param str1   First string
+ * \param str2   Second string
+ * \param num    Number of characters to check
+ */
+int strnicmp( const char *str1, const char *str2, size_t num );
+
+
+/*!
  * Convert common integer values to strings.
  *
  * These are simply wrappers around intToString that ensure the
@@ -163,21 +172,6 @@ inline bool approx_equal_abs( const T &v1, const T &v2, const T tol = type_defau
 {
     return fabs( (double) ( v1 - v2 ) ) <= tol; // Check if the two value are less than tolerance
 }
-
-
-/*!
- * Helper function to copy and cast (single<->double precision) values between two arrays
- * @param[in]    len      Length of above vectors
- * @param[in]    vec_in   The incoming vector to get the values from
- * @param[inout] vec_out  The outgoing vector to with the up/down-casted values from vec_in
- *                        It is assumed that vec_out is properly allocated
- */
-template<typename T1, typename T2, Backend, class Allocator>
-void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out );
-
-template<typename T1, typename T2, Backend>
-void copyCast( const size_t len, const T1 *vec_in, T2 *vec_out );
-
 
 /*!
  * Quicksort a std::vector

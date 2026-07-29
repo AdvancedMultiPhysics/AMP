@@ -127,6 +127,13 @@ public:
      */
     std::shared_ptr<AMP::LinearAlgebra::Matrix> getMatrix() override;
 
+    /**
+     * Copies the shared pointer for the matrix representation of this linear operator,
+     * updates the memory location flags, and frees in/out/res vectors if no longer needed.
+     *  @param [in] in_mat The matrix representation of this linear operator.
+     */
+    void setMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> in_mat ) override;
+
 private:
     bool d_migrate_data;
 

@@ -8,7 +8,6 @@
 #include "AMP/utils/TypeTraits.h"
 #include "AMP/utils/UtilityMacros.h"
 
-
 #include <algorithm>
 #include <cmath>
 #include <complex>
@@ -22,17 +21,9 @@
  *  Macros to help instantiate functions                 *
  ********************************************************/
 // clang-format off
-#ifndef AMP_CXX_STANDARD
-    #define AMP_CXX_STANDARD 17
-#endif
-#if AMP_CXX_STANDARD >= 20
 #define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
-#elif defined( __NVCOMPILER )
-#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array();
-#else
-#define instantiateDestructor(TYPE,FUN,A) template AMP::Array<TYPE,FUN,A>::~Array<TYPE,FUN,A>();
-#endif
-#define instantiateArrayConstructors2( TYPE, FUN, A )                                    \
+
+#define instantiateArrayConstructors2( TYPE, FUN, A )					\
     instantiateDestructor(TYPE,FUN,A)                                                    \
     template AMP::Array<TYPE,FUN,A>::Array();                                            \
     template AMP::Array<TYPE,FUN,A>::Array( const AMP::ArraySize&, TYPE const* );        \
@@ -70,7 +61,7 @@
     template bool AMP::Array<TYPE,FUN,A>::operator==( const AMP::Array<TYPE,FUN,A>& ) const; \
     template bool AMP::Array<TYPE,FUN,A>::operator!=( const AMP::Array<TYPE,FUN,A>& ) const
 #define instantiateArrayConstructors( TYPE )                              \
-    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, std::allocator<void> )
+    instantiateArrayConstructors2( TYPE, AMP::FunctionTable<TYPE>, AMP::HostAllocator<void> )
 #define PACK_UNPACK_ARRAY( TYPE )                                         \
     template size_t AMP::packSize( const AMP::Array<TYPE> & );            \
     template size_t AMP::pack( const AMP::Array<TYPE> &, std::byte * );   \
@@ -277,7 +268,7 @@ void Array<TYPE, FUN, Allocator>::allocate( const ArraySize &N )
     size_t length = d_size.length();
     if ( length > 0 ) {
         try {
-            d_data = d_alloc.allocate( length );
+            d_data = d_alloc.allocate( length, nullptr );
             if constexpr ( !std::is_trivially_copyable<TYPE>::value ) {
                 for ( size_t i = 0; i < length; ++i )
                     new ( d_data + i ) TYPE();

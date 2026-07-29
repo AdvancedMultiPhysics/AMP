@@ -1,9 +1,11 @@
 #ifndef included_AMP_VectorOperationsDefault_hpp
 #define included_AMP_VectorOperationsDefault_hpp
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Backend.h"
 #include "AMP/utils/Memory.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
@@ -94,7 +96,8 @@ void VectorOperationsDefault<TYPE>::zero( VectorData &x )
     for ( size_t i = 0; i < N_blocks; i++ ) {
         auto data = x.getRawDataBlock<TYPE>( i );
         auto N    = x.sizeOfDataBlock( i );
-        AMP::Utilities::zero( data, N * sizeof( TYPE ) );
+        AMP::Utilities::Algorithms::zero_n(
+            data, N, x.getMemoryLocation(), AMP::AMPManager::getDefaultComputeStream() );
     }
     x.fillGhosts( 0 );
     // Override the status state since we set the ghost values
@@ -177,21 +180,38 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
             auto xdata = x.getRawDataBlock<TYPE>( i );
             auto ydata = y.getRawDataBlock<TYPE>( i );
             AMP_ASSERT( xdata && ydata && N == x.sizeOfDataBlock( i ) );
-            AMP::Utilities::memcpy( ydata, xdata, N * sizeof( TYPE ) );
+            AMP::Utilities::Algorithms::copy_n( ydata,
+                                                y.getMemoryLocation(),
+                                                xdata,
+                                                x.getMemoryLocation(),
+                                                N,
+                                                AMP::AMPManager::getDefaultComputeStream() );
         }
         y.copyGhostValues( x );
+        // Override the status state since we set the ghost values
+        y.setUpdateStatus( UpdateState::UNCHANGED );
     } else if ( N_blocks_x == N_blocks && !x.isType<TYPE>() ) {
         for ( size_t i = 0; i < N_blocks; i++ ) {
             size_t N   = y.sizeOfDataBlock( i );
             auto ydata = y.getRawDataBlock<TYPE>( i );
             auto type  = x.getType( i );
             AMP_ASSERT( N == x.sizeOfDataBlock( i ) );
-            if ( type == getTypeID<float>() ) {
+            if ( type == getTypeID<float>() && std::is_same_v<TYPE, double> ) {
                 auto xdata = x.getRawDataBlock<float>( i );
-                AMP::Utilities::copy( N, xdata, ydata );
-            } else if ( type == getTypeID<double>() ) {
+                AMP::Utilities::Algorithms::copyCast( reinterpret_cast<double *>( ydata ),
+                                                      y.getMemoryLocation(),
+                                                      xdata,
+                                                      x.getMemoryLocation(),
+                                                      N,
+                                                      AMP::AMPManager::getDefaultComputeStream() );
+            } else if ( type == getTypeID<double>() && std::is_same_v<TYPE, float> ) {
                 auto xdata = x.getRawDataBlock<double>( i );
-                AMP::Utilities::copy( N, xdata, ydata );
+                AMP::Utilities::Algorithms::copyCast( reinterpret_cast<float *>( ydata ),
+                                                      y.getMemoryLocation(),
+                                                      xdata,
+                                                      x.getMemoryLocation(),
+                                                      N,
+                                                      AMP::AMPManager::getDefaultComputeStream() );
             } else {
                 AMP_ERROR( "copy only implemented for float or doubles" );
             }
@@ -200,7 +220,9 @@ void VectorOperationsDefault<TYPE>::copy( const VectorData &x, VectorData &y )
     } else {
         std::copy( x.begin<TYPE>(), x.end<TYPE>(), y.begin<TYPE>() );
         y.copyGhostValues( x );
+        y.setUpdateStatus( UpdateState::UNCHANGED );
     }
+    y.makeConsistent(); // stream syncs for managed, no-op otherwise
 }
 
 template<typename TYPE>
@@ -224,7 +246,7 @@ void VectorOperationsDefault<TYPE>::scale( const Scalar &alpha_in, VectorData &x
         for ( size_t i = 0; i < N; ++i ) {
             xdata[i] *= alpha;
         }
-        x.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        x.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe = x.begin<TYPE>();
         auto last  = x.end<TYPE>();
@@ -262,7 +284,7 @@ void VectorOperationsDefault<TYPE>::scale( const Scalar &alpha_in,
             ++curMe;
         }
     }
-    y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+    y.makeConsistent( ScatterType::CONSISTENT_SET );
 }
 
 template<typename TYPE>
@@ -280,7 +302,7 @@ void VectorOperationsDefault<TYPE>::add( const VectorData &x, const VectorData &
         for ( size_t i = 0; i < N; ++i ) {
             zdata[i] = xdata[i] + ydata[i];
         }
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = z.begin<TYPE>();
         auto last    = z.end<TYPE>();
@@ -292,6 +314,7 @@ void VectorOperationsDefault<TYPE>::add( const VectorData &x, const VectorData &
             ++curYRhs;
             ++curMe;
         }
+        z.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -313,7 +336,7 @@ void VectorOperationsDefault<TYPE>::subtract( const VectorData &x,
         for ( size_t i = 0; i < N; ++i ) {
             zdata[i] = xdata[i] - ydata[i];
         }
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = z.begin<TYPE>();
         auto last    = z.end<TYPE>();
@@ -325,6 +348,7 @@ void VectorOperationsDefault<TYPE>::subtract( const VectorData &x,
             ++curYRhs;
             ++curMe;
         }
+        z.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -346,7 +370,7 @@ void VectorOperationsDefault<TYPE>::multiply( const VectorData &x,
         for ( size_t i = 0; i < N; ++i ) {
             zdata[i] = xdata[i] * ydata[i];
         }
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = z.begin<TYPE>();
         auto last    = z.end<TYPE>();
@@ -358,6 +382,7 @@ void VectorOperationsDefault<TYPE>::multiply( const VectorData &x,
             ++curYRhs;
             ++curMe;
         }
+        z.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -379,7 +404,7 @@ void VectorOperationsDefault<TYPE>::divide( const VectorData &x,
         for ( size_t i = 0; i < N; ++i ) {
             zdata[i] = xdata[i] / ydata[i];
         }
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = z.begin<TYPE>();
         auto last    = z.end<TYPE>();
@@ -391,6 +416,7 @@ void VectorOperationsDefault<TYPE>::divide( const VectorData &x,
             ++curYRhs;
             ++curMe;
         }
+        z.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -410,7 +436,7 @@ void VectorOperationsDefault<TYPE>::reciprocal( const VectorData &x, VectorData 
         for ( size_t i = 0; i < N; ++i ) {
             ydata[i] = one / xdata[i];
         }
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe  = y.begin<TYPE>();
         auto last   = y.end<TYPE>();
@@ -420,6 +446,7 @@ void VectorOperationsDefault<TYPE>::reciprocal( const VectorData &x, VectorData 
             ++curRhs;
             ++curMe;
         }
+        y.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -446,7 +473,7 @@ void VectorOperationsDefault<TYPE>::linearSum( const Scalar &alpha_in,
         for ( size_t i = 0; i < N; ++i ) {
             zdata[i] = alpha * xdata[i] + beta * ydata[i];
         }
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = z.begin<TYPE>();
         auto last    = z.end<TYPE>();
@@ -458,6 +485,7 @@ void VectorOperationsDefault<TYPE>::linearSum( const Scalar &alpha_in,
             ++curYRhs;
             ++curMe;
         }
+        z.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -481,7 +509,7 @@ void VectorOperationsDefault<TYPE>::axpy( const Scalar &alpha_in,
         for ( size_t i = 0; i < N; ++i ) {
             zdata[i] = alpha * xdata[i] + ydata[i];
         }
-        z.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        z.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = z.begin<TYPE>();
         auto last    = z.end<TYPE>();
@@ -493,6 +521,7 @@ void VectorOperationsDefault<TYPE>::axpy( const Scalar &alpha_in,
             ++curYRhs;
             ++curMe;
         }
+        z.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -515,7 +544,7 @@ void VectorOperationsDefault<TYPE>::axpby( const Scalar &alpha_in,
         for ( size_t i = 0; i < N; ++i ) {
             ydata[i] = alpha * xdata[i] + beta * ydata[i];
         }
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = y.begin<TYPE>();
         auto last    = y.end<TYPE>();
@@ -525,6 +554,7 @@ void VectorOperationsDefault<TYPE>::axpby( const Scalar &alpha_in,
             ++curXRhs;
             ++curMe;
         }
+        y.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -542,7 +572,7 @@ void VectorOperationsDefault<TYPE>::abs( const VectorData &x, VectorData &y )
         for ( size_t i = 0; i < N; ++i ) {
             ydata[i] = std::abs( xdata[i] );
         }
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe  = y.begin<TYPE>();
         auto last   = y.end<TYPE>();
@@ -552,6 +582,7 @@ void VectorOperationsDefault<TYPE>::abs( const VectorData &x, VectorData &y )
             ++curRhs;
             ++curMe;
         }
+        y.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -572,7 +603,7 @@ void VectorOperationsDefault<TYPE>::addScalar( const VectorData &x,
         for ( size_t i = 0; i < N; ++i ) {
             ydata[i] = alpha + xdata[i];
         }
-        y.setUpdateStatus( UpdateState::LOCAL_CHANGED );
+        y.makeConsistent( ScatterType::CONSISTENT_SET );
     } else {
         auto curMe   = y.begin<TYPE>();
         auto last    = y.end<TYPE>();
@@ -582,6 +613,7 @@ void VectorOperationsDefault<TYPE>::addScalar( const VectorData &x,
             ++curXRhs;
             ++curMe;
         }
+        y.setUpdateStatus( UpdateState::UNCHANGED );
     }
 }
 
@@ -597,6 +629,7 @@ void VectorOperationsDefault<TYPE>::setMax( const Scalar &val, VectorData &x )
         *curMe = std::min( alpha, *curMe );
         ++curMe;
     }
+    x.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
 template<typename TYPE>
@@ -611,6 +644,7 @@ void VectorOperationsDefault<TYPE>::setMin( const Scalar &val, VectorData &x )
         *curMe = std::max( alpha, *curMe );
         ++curMe;
     }
+    x.setUpdateStatus( UpdateState::UNCHANGED );
 }
 
 template<typename TYPE>

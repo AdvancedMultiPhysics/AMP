@@ -173,6 +173,7 @@ void DiffusionFDOperator::fillVectorWithFunction(
 {
 
     double u; // Placeholder for funcation evaluation
+    auto vecData = vec->getVectorData();
 
     // Fill in exact solution vector
     auto it = d_BoxMesh->getIterator( VertexGeom ); // Mesh iterator
@@ -180,7 +181,7 @@ void DiffusionFDOperator::fillVectorWithFunction(
         u = fun( elem->coord() );
         std::vector<size_t> i;
         d_DOFMan->getDOFs( elem->globalID(), i );
-        vec->setValueByGlobalID( i[0], u );
+        vecData->setValuesByGlobalID( 1, &i[0], &u, AMP::Utilities::MemoryType::host );
     }
 }
 
@@ -197,7 +198,8 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> DiffusionFDOperator::createRHSVector
 {
 
     // Create a vector
-    auto rhs = this->createOutputVector();
+    auto rhs     = this->createOutputVector();
+    auto rhsData = rhs->getVectorData();
     // To start, fill all of it with PDE source term
     this->fillVectorWithFunction( rhs, PDESourceFun );
 
@@ -217,7 +219,8 @@ std::shared_ptr<AMP::LinearAlgebra::Vector> DiffusionFDOperator::createRHSVector
             boundaryValue = boundaryFun( elem->coord(), boundary_id );
             boundaryValue *= this->getMatrix()->getValueByGlobalID( dof[0], dof[0] );
             // Set value in vector
-            rhs->setValueByGlobalID( dof[0], boundaryValue );
+            rhsData->setValuesByGlobalID(
+                1, &dof[0], &boundaryValue, AMP::Utilities::MemoryType::host );
         }
     }
 

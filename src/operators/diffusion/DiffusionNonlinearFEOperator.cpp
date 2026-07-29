@@ -125,7 +125,7 @@ convert( std::shared_ptr<const OperatorParameters> params )
     for ( auto name : getActiveVariables( db, "ActiveInputVariables" ) ) {
         auto var    = std::make_shared<AMP::LinearAlgebra::Variable>( name );
         auto memLoc = AMP::Utilities::memoryLocationFromString(
-            db->getWithDefault<std::string>( "MemoryLocation", "host" ) );
+            db->getWithDefault<std::string>( "memory_location", "host" ) );
         auto vec = AMP::LinearAlgebra::createVector( scalarDOF, var, true, memLoc );
         if ( db->getWithDefault<bool>( "Freeze" + name, false ) )
             diffusionOpParams->d_FrozenVecs[name] = vec;

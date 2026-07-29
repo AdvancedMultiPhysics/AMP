@@ -6,12 +6,15 @@
 #include <string.h>
 
 #include "AMP/utils/UtilityMacros.h"
-#include "AMP/utils/cuda/helper_string.h"
 
 #include "StackTrace/source_location.h"
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+
+namespace AMP::Utilities {
+typedef cudaStream_t ComputeStream;
+}
 
 #define hostDeviceId cudaCpuDeviceId
 
@@ -25,29 +28,23 @@
 #define deviceGetCount( ... ) checkCudaErrors( cudaGetDeviceCount( __VA_ARGS__ ) )
 #define deviceBind( ... ) checkCudaErrors( cudaSetDevice( __VA_ARGS__ ) )
 #define deviceId( ... ) checkCudaErrors( cudaGetDevice( __VA_ARGS__ ) )
+
+#define deviceStreamCreate( ... ) checkCudaErrors( cudaStreamCreate( __VA_ARGS__ ) )
+#define deviceStreamDestroy( ... ) checkCudaErrors( cudaStreamDestroy( __VA_ARGS__ ) )
+#define deviceStreamSynchronize( STREAM ) checkCudaErrors( cudaStreamSynchronize( STREAM ) )
 #define deviceSynchronize() checkCudaErrors( cudaDeviceSynchronize() )
+
 #define deviceMalloc( ... ) checkCudaErrors( cudaMalloc( __VA_ARGS__ ) )
 #define deviceMallocManaged( ... ) checkCudaErrors( cudaMallocManaged( __VA_ARGS__ ) )
 #define deviceMemcpy( ... ) checkCudaErrors( cudaMemcpy( __VA_ARGS__ ) )
 #define deviceMemset( ... ) checkCudaErrors( cudaMemset( __VA_ARGS__ ) )
 #define deviceFree( ... ) checkCudaErrors( cudaFree( __VA_ARGS__ ) )
+
+#define deviceMallocAsync( ... ) checkCudaErrors( cudaMallocAsync( __VA_ARGS__ ) )
+#define deviceMemcpyAsync( ... ) checkCudaErrors( cudaMemcpyAsync( __VA_ARGS__ ) )
+#define deviceMemsetAsync( ... ) checkCudaErrors( cudaMemsetAsync( __VA_ARGS__ ) )
+#define deviceFreeAsync( ... ) checkCudaErrors( cudaFreeAsync( __VA_ARGS__ ) )
 #define deviceMemPrefetchAsync( ... ) checkCudaErrors( cudaMemPrefetchAsync( __VA_ARGS__ ) )
-
-
-#ifndef EXIT_WAIVED
-    #define EXIT_WAIVED 2
-#endif
-
-
-#ifdef __DRIVER_TYPES_H__
-    #ifndef DEVICE_RESET
-        #define DEVICE_RESET cudaDeviceReset();
-    #endif
-#else
-    #ifndef DEVICE_RESET
-        #define DEVICE_RESET
-    #endif
-#endif
 
 
 namespace AMP::Utilities {
@@ -136,21 +133,15 @@ bool checkCudaCapabilities( int major_version, int minor_version );
 
 #endif
 
-static void inline setKernelDims( size_t n, dim3 &BlockDim, dim3 &GridDim )
+template<typename FUNC>
+static void inline setKernelDims( const int n, FUNC func, dim3 &BlockDim, dim3 &GridDim )
 {
-    // Parameters for an NVIDIA Volta.
-    // https://images.nvidia.com/content/volta-architecture/pdf/volta-architecture-whitepaper.pdf
-    // We should move to using occupancy API
-    constexpr int warpSize    = 32;
-    constexpr int maxGridSize = 32 * 80; // max 32 blocks per SM of Volta, 80 SM's
-                                         //  this number might need to be tuned
-                                         //  consider querying for device info
-    int warpCount    = ( n / warpSize ) + ( ( ( n % warpSize ) == 0 ) ? 0 : 1 );
-    int warpPerBlock = std::max( 1, std::min( 4, warpCount ) );
-    int threadCount  = warpSize * warpPerBlock;
-    int blockCount   = std::min( maxGridSize, std::max( 1, warpCount / warpPerBlock ) );
-    BlockDim         = dim3( threadCount, 1, 1 );
-    GridDim          = dim3( blockCount, 1, 1 );
+    int minGridSize = 0, blockSize = 0;
+    checkCudaErrors(
+        cudaOccupancyMaxPotentialBlockSizeWithFlags( &minGridSize, &blockSize, func, 0, 0 ) );
+    const int gridSize = ( n + blockSize - 1 ) / blockSize;
+    BlockDim           = dim3( blockSize, 1, 1 );
+    GridDim            = dim3( gridSize, 1, 1 );
     return;
 }
 

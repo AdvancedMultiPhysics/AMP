@@ -72,11 +72,13 @@ static AMP::Utilities::MemoryType getAMPMemorySpace( HYPRE_MemoryLocation memory
 #elif defined( HYPRE_USING_UNIFIED_MEMORY )
         return AMP::Utilities::MemoryType::managed;
 #else
-        AMP_WARN_ONCE( "Unable to detect Hypre memory location" );
-        return AMP::Utilities::MemoryType::device;
+        AMP_WARN_ONCE(
+            "Hypre device/managed memory requested but neither\n  HYPRE_USING_DEVICE_MEMORY nor\n  "
+            "HYPRE_USING_UNIFIED_MEMORY\nare defined. Ensure Hypre was built with GPU support." );
+        return AMP::Utilities::MemoryType::host;
 #endif
     } else {
-        AMP_WARN_ONCE( "Unable to detect Hypre memory location" );
+        AMP_WARN_ONCE( "Unrecognized Hypre memory location requested." );
         return AMP::Utilities::MemoryType::host;
     }
 }
@@ -192,7 +194,7 @@ void HypreSolver::copyToHypre( std::shared_ptr<const AMP::LinearAlgebra::Vector>
         vals_p = std::const_pointer_cast<AMP::LinearAlgebra::Vector>( amp_v )
                      ->getRawDataBlock<HYPRE_Real>();
 
-        auto memType = AMP::Utilities::getMemoryType( vals_p );
+        auto memType = amp_v->getMemoryLocation();
         // see if memory spaces are compatible
         if ( memType == hypreMemType ) {
             AMP_ASSERT( vals_p );

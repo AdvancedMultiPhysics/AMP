@@ -27,12 +27,6 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
                          std::shared_ptr<AMP::Discretization::DOFManager> &dofManager )
 {
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
-    // Create the vectors
-    auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
-    auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-    auto inVec  = AMP::LinearAlgebra::createVector( dofManager, inVar );
-    auto outVec = AMP::LinearAlgebra::createVector( dofManager, outVar );
-
     std::string type;
 #if defined( AMP_USE_TRILINOS )
     type = "ManagedEpetraMatrix";
@@ -42,17 +36,12 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
     AMP_ERROR( "This test requires either Trilinos or Petsc matrices to be enabled" );
 #endif
 
-    // Create the matrix
-    auto matrix = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
-    if ( matrix ) {
-        ut->passes( "Able to create a square matrix" );
-    } else {
-        ut->failure( "Unable to create a square matrix" );
-    }
-
-    fillWithPseudoLaplacian( matrix );
-
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    // create pseudoLaplacian matrix
+    auto inVar   = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
+    auto outVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
+    auto memLoc  = AMP::Utilities::MemoryType::host;
+    auto backend = AMP::Utilities::Backend::Serial;
+    auto matrix  = pseudoLaplacianFromDOFs( type, dofManager, backend, memLoc, inVar, outVar );
 
     auto nGlobalRows1 = matrix->numGlobalRows();
     auto nLocalRows1  = matrix->numLocalRows();
@@ -155,9 +144,7 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
         ut->failure( "Matvec with converted CSR matches fails to default matvec" );
     }
 
-    auto csrMatrix2 = AMP::LinearAlgebra::createMatrix( inVec, outVec, "CSRMatrix" );
-    fillWithPseudoLaplacian( csrMatrix2 );
-    csrMatrix2->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+    auto csrMatrix2 = pseudoLaplacianFromDOFs( type, dofManager, backend, memLoc, inVar, outVar );
     y1->zero();
     y2->zero();
     matrix->mult( x1, y1 );

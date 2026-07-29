@@ -11,6 +11,10 @@ namespace AMP::IO {
 class RestartManager;
 }
 
+namespace AMP::Utilities {
+class GroupedRedistributionPlan;
+}
+
 namespace AMP::LinearAlgebra {
 
 template<typename Policy>
@@ -85,21 +89,33 @@ public:
     shared_ptr migrate( AMP::Utilities::MemoryType memType, AMP::Utilities::Backend backend ) const;
 
     /** \brief  Return a copy of the matrix with the specified ConfigOut
-     * \return  The new matrix
-     * \details This selects the operations backend from the default based on memType
-     */
-    template<typename ConfigOut>
-    shared_ptr migrate() const;
-
-    /** \brief  Return a copy of the matrix with the specified ConfigOut
      * \param[in] backend Acceleration backend for operations
      * \return  The new matrix
      */
     template<typename ConfigOut>
     shared_ptr migrate( AMP::Utilities::Backend backend ) const;
 
-    //! Replace current backend with different one, no-op if same
+    /** \brief Redistribute a square CSR matrix onto the roots of `new_nprocs` contiguous rank
+     *         groups of the current communicator using contiguous row blocks.
+     * \details Inactive ranks return `nullptr`.
+     */
+    shared_ptr redistribute( int new_nprocs ) const;
+
+    /** \brief Redistribute a square CSR matrix with a precomputed grouped redistribution plan.
+     * \details Inactive ranks return `nullptr`.
+     */
+    shared_ptr redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const;
+
+    //! Replace current backend with different one
     void setBackend( AMP::Utilities::Backend backend ) override;
+
+    //! Get backend from current matrix operations object
+    virtual AMP::Utilities::Backend getBackend() const override;
+
+    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
+     * as X and copy the coefficients after up/down casting
+     */
+    void copyCast( std::shared_ptr<const Matrix> X ) override;
 
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer

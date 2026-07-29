@@ -97,26 +97,24 @@ void Operator::getBackendFromInput( std::shared_ptr<AMP::Database> db )
     d_iDebugPrintInfoLevel = db->getWithDefault<int>( "print_info_level", 0 );
 
     if ( d_memory_location == AMP::Utilities::MemoryType::none ) {
-        auto memLoc       = db->getWithDefault<std::string>( "MemoryLocation", "host" );
+        auto memLoc       = db->getWithDefault<std::string>( "memory_location", "host" );
         d_memory_location = AMP::Utilities::memoryLocationFromString( memLoc );
     }
-    if ( d_backend == AMP::Utilities::Backend::Serial ) {
-        if ( db->keyExists( "AccelerationBackend" ) ) {
-            auto bcknd = db->getString( "AccelerationBackend" );
-            d_backend  = AMP::Utilities::backendFromString( bcknd );
-        } else {
-            d_backend = AMP::Utilities::getDefaultBackend( d_memory_location );
-        }
+    if ( db->keyExists( "acceleration_backend" ) ) {
+        auto bcknd = db->getString( "acceleration_backend" );
+        d_backend  = AMP::Utilities::backendFromString( bcknd );
+    } else {
+        d_backend = AMP::Utilities::getDefaultBackend( d_memory_location );
     }
 }
 
 void Operator::setMemoryAndBackendParameters( std::shared_ptr<AMP::Database> db )
 {
     if ( d_memory_location != AMP::Utilities::MemoryType::none )
-        db->putScalar<std::string>( "MemoryLocation",
+        db->putScalar<std::string>( "memory_location",
                                     AMP::Utilities::getString( d_memory_location ).data() );
     if ( d_backend != AMP::Utilities::Backend::Serial )
-        db->putScalar<std::string>( "AccelerationBackend",
+        db->putScalar<std::string>( "acceleration_backend",
                                     AMP::Utilities::getString( d_backend ).data() );
 }
 

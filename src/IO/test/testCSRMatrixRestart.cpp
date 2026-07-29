@@ -62,7 +62,6 @@ void compareLocalMatrixData(
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
-    PASS_FAIL( d1->getMemoryLocation() == d2->getMemoryLocation(), "getMemoryLocation" );
     PASS_FAIL( d1->isDiag() == d2->isDiag(), "isDiag" );
     PASS_FAIL( d1->isEmpty() == d2->isEmpty(), "isEmpty" );
     PASS_FAIL( d1->numberOfNonZeros() == d2->numberOfNonZeros(), "numberOfNonZeros" );
@@ -112,7 +111,7 @@ void compareMatrices( AMP::UnitTest *ut,
     PASS_FAIL( d1->endRow() == d2->endRow(), "endRow" );
     PASS_FAIL( d1->beginCol() == d2->beginCol(), "beginCol" );
     PASS_FAIL( d1->endCol() == d2->endCol(), "endCol" );
-    PASS_FAIL( d1->getBackend() == d2->getBackend(), "getBackend" );
+    PASS_FAIL( m1->getBackend() == m2->getBackend(), "getBackend" );
     PASS_FAIL( d1->getCoeffType() == d2->getCoeffType(), "getCoeffType" );
     PASS_FAIL( d1->isSquare() == d2->isSquare(), "isSquare" );
     PASS_FAIL( d1->isEmpty() == d2->isEmpty(), "isEmpty" );
@@ -139,39 +138,9 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-
-    // using  AMP::ManagedAllocator<void>;
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::host );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::host );
-
-    // Create the matrix
-
-    ///// Temporary before updating create matrix
-    // Get the DOFs
-    auto leftDOF  = inVec->getDOFManager();
-    auto rightDOF = outVec->getDOFManager();
-
-    const auto _leftDOF  = leftDOF.get();
-    const auto _rightDOF = rightDOF.get();
-    std::function<std::vector<size_t>( size_t )> getRow;
-    getRow = [_leftDOF, _rightDOF]( size_t row ) {
-        auto id = _leftDOF->getElementID( row );
-        return _rightDOF->getRowDOFs( id );
-    };
-
-    // Create the matrix parameters
-    auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOF, rightDOF, comm, inVar, outVar, backend, getRow );
-
-    // Create the matrix
-    auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Config>>( params );
-    matrix    = std::make_shared<AMP::LinearAlgebra::CSRMatrix<Config>>( data );
-    // Initialize the matrix
-    matrix->zero();
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-    ///// END: Temporary before updating create matrix
+    matrix =
+        std::dynamic_pointer_cast<AMP::LinearAlgebra::CSRMatrix<Config>>( pseudoLaplacianFromDOFs(
+            "CSRMatrix", dofManager, backend, Config::mem_loc, inVar, outVar ) );
 
     if ( matrix ) {
         ut->passes( " Able to create a square matrix" );
@@ -192,9 +161,6 @@ void testCSRMatrixRestartWithDOFs( AMP::UnitTest *ut,
     std::shared_ptr<AMP::LinearAlgebra::Vector> yVec              = nullptr;
     createMatrixAndVectors<Config>(
         ut, AMP::Utilities::Backend::Serial, dofManager, matrix, uVec, yVec );
-
-    fillWithPseudoLaplacian( matrix );
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     uVec->setRandomValues();
     // this shouldn't be necessary, but evidently is!

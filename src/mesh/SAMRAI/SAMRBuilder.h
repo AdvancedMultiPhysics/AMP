@@ -104,9 +104,10 @@ public:
      *                      will be created and a pointer returned.
      */
     static std::shared_ptr<SAMRAI::mesh::GriddingAlgorithmStrategy> buildGriddingAlgorithm(
-        const std::shared_ptr<SAMRAI::hier::PatchHierarchy> hierarchy,
-        const std::shared_ptr<AMP::Database> amp_db,
+        std::shared_ptr<SAMRAI::hier::PatchHierarchy> hierarchy,
+        std::shared_ptr<const AMP::Database> amp_db,
         std::shared_ptr<SAMRAI::mesh::StandardTagAndInitStrategy> &test_object );
+
     /*!
      * This function will check the command line for valid inputs and return the input
      * file name and the log file name.

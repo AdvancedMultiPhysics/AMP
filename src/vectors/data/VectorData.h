@@ -1,6 +1,7 @@
 #ifndef included_AMP_VectorData
 #define included_AMP_VectorData
 
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/AMP_MPI.h"
 #include "AMP/utils/enable_shared_from_this.h"
 #include "AMP/utils/typeid.h"
@@ -119,12 +120,27 @@ public: // Get/Set data
     template<class TYPE>
     void putRawData( const TYPE *buf );
 
+    /**\brief Copy data into this vector
+     *\param[in] buf  Buffer to copy from
+     *\param[in] buf_loc  Memory location of buffer
+     */
+    template<class TYPE>
+    void putRawData( const TYPE *buf, AMP::Utilities::MemoryType buf_loc );
+
     /**\brief Copy data out of this vector
      *\param[out] buf  Buffer to copy to
      *\details The Vector should be pre-allocated to the correct size (getLocalSize())
      */
     template<class TYPE>
     void getRawData( TYPE *buf ) const;
+
+    /**\brief Copy data out of this vector
+     *\param[out] buf  Buffer to copy to
+     *\param[in] buf_loc  Memory location of buffer
+     *\details The Vector should be pre-allocated to the correct size (getLocalSize())
+     */
+    template<class TYPE>
+    void getRawData( TYPE *buf, AMP::Utilities::MemoryType buf_loc ) const;
 
     /**
      * \brief Set values in the vector by their local offset
@@ -139,6 +155,22 @@ public: // Get/Set data
     void setValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
+     * \brief Set values in the vector by their local offset
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details This will set the owned values for this core.  All indices are
+     * from 0.
+     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
+     */
+    template<class TYPE>
+    void setValuesByLocalID( size_t num,
+                             const size_t *indices,
+                             const TYPE *vals,
+                             AMP::Utilities::MemoryType buf_loc );
+
+    /**
      * \brief Set ghost values using global identifier
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -148,6 +180,21 @@ public: // Get/Set data
      */
     template<class TYPE>
     void setGhostValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
+
+    /**
+     * \brief Set ghost values using global identifier
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     *
+     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
+     */
+    template<class TYPE>
+    void setGhostValuesByGlobalID( size_t num,
+                                   const size_t *indices,
+                                   const TYPE *vals,
+                                   AMP::Utilities::MemoryType buf_loc );
 
     /**
      * \brief Set owned or shared values using global identifier
@@ -160,6 +207,22 @@ public: // Get/Set data
      */
     template<class TYPE>
     void setValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
+
+    /**
+     * \brief Set owned or shared values using global identifier
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details Since the shared buffer and owned buffer are separate,
+     * this function must sort the data by buffer before setting
+     * values.
+     */
+    template<class TYPE>
+    void setValuesByGlobalID( size_t num,
+                              const size_t *indices,
+                              const TYPE *vals,
+                              AMP::Utilities::MemoryType buf_loc );
 
     /**
      * \brief Add values to vector entities by their local offset
@@ -175,6 +238,23 @@ public: // Get/Set data
     void addValuesByLocalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
+     * \brief Add values to vector entities by their local offset
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details This will set the owned values for this core.  All indices are
+     * from 0.
+     * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
+     * \mathit{vals}_i \f$
+     */
+    template<class TYPE>
+    void addValuesByLocalID( size_t num,
+                             const size_t *indices,
+                             const TYPE *vals,
+                             AMP::Utilities::MemoryType buf_loc );
+
+    /**
      * \brief Add owned or shared values using global identifier
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -187,6 +267,22 @@ public: // Get/Set data
     void addValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
 
     /**
+     * \brief Add owned or shared values using global identifier
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details Since the shared buffer and owned buffer are separate,
+     * this function must sort the data by buffer before setting
+     * values.
+     */
+    template<class TYPE>
+    void addValuesByGlobalID( size_t num,
+                              const size_t *indices,
+                              const TYPE *vals,
+                              AMP::Utilities::MemoryType buf_loc );
+
+    /**
      * \brief Add shared values using global identifier
      * \param[in] num  number of values to add
      * \param[in] indices the indices of the values to add
@@ -195,6 +291,18 @@ public: // Get/Set data
     template<class TYPE>
     void addGhostValuesByGlobalID( size_t num, const size_t *indices, const TYPE *vals );
 
+    /**
+     * \brief Add shared values using global identifier
+     * \param[in] num  number of values to add
+     * \param[in] indices the indices of the values to add
+     * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     */
+    template<class TYPE>
+    void addGhostValuesByGlobalID( size_t num,
+                                   const size_t *indices,
+                                   const TYPE *vals,
+                                   AMP::Utilities::MemoryType buf_loc );
 
     /**
      * \brief get ghosted values to add to off-proc elements
@@ -206,7 +314,20 @@ public: // Get/Set data
      */
     template<class TYPE>
     void getGhostAddValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
-
+    /**
+     * \brief get ghosted values to add to off-proc elements
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[in] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details This will get the ghosted updates this processor has made.  All indices are
+     * from global 0.
+     */
+    template<class TYPE>
+    void getGhostAddValuesByGlobalID( size_t num,
+                                      const size_t *indices,
+                                      TYPE *vals,
+                                      AMP::Utilities::MemoryType buf_loc ) const;
 
     /**
      * \brief Get local values in the vector by their global offset
@@ -217,6 +338,20 @@ public: // Get/Set data
      */
     template<class TYPE>
     void getValuesByLocalID( size_t num, const size_t *indices, TYPE *vals ) const;
+
+    /**
+     * \brief Get local values in the vector by their global offset
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[out] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details This will get any value used by this core.
+     */
+    template<class TYPE>
+    void getValuesByLocalID( size_t num,
+                             const size_t *indices,
+                             TYPE *vals,
+                             AMP::Utilities::MemoryType buf_loc ) const;
 
     /**
      * \brief get values in the vector by their local offset
@@ -230,6 +365,21 @@ public: // Get/Set data
     void getValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
 
     /**
+     * \brief get values in the vector by their local offset
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[out] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details This will get the owned values for this core.  All indices are
+     * from 0.
+     */
+    template<class TYPE>
+    void getValuesByGlobalID( size_t num,
+                              const size_t *indices,
+                              TYPE *vals,
+                              AMP::Utilities::MemoryType buf_loc ) const;
+
+    /**
      * \brief Get ghost values in the vector by their global offset
      * \param[in] num  number of values to set
      * \param[in] indices the indices of the values to set
@@ -240,6 +390,20 @@ public: // Get/Set data
     void getGhostValuesByGlobalID( size_t num, const size_t *indices, TYPE *vals ) const;
 
     /**
+     * \brief Get ghost values in the vector by their global offset
+     * \param[in] num  number of values to set
+     * \param[in] indices the indices of the values to set
+     * \param[out] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of indices and vals buffers
+     * \details This will get any value owned by this core.
+     */
+    template<class TYPE>
+    void getGhostValuesByGlobalID( size_t num,
+                                   const size_t *indices,
+                                   TYPE *vals,
+                                   AMP::Utilities::MemoryType buf_loc ) const;
+
+    /**
      * \brief Get all ghost values
      * \param[out] vals the values to place in the vector
      * \details This will get any value owned by this core.
@@ -247,20 +411,33 @@ public: // Get/Set data
     template<class TYPE>
     size_t getAllGhostValues( TYPE *vals ) const;
 
+    /**
+     * \brief Get all ghost values
+     * \param[out] vals the values to place in the vector
+     * \param[in] buf_loc Memory space of vals buffer
+     * \details This will get any value owned by this core.
+     */
+    template<class TYPE>
+    size_t getAllGhostValues( TYPE *vals, AMP::Utilities::MemoryType buf_loc ) const;
+
 
 public: // Advanced (virtual) get/set values
     /**\brief Copy data into this vector
      * \param[in] buf  Buffer to copy from
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      */
-    virtual void putRawData( const void *buf, const typeID &id ) = 0;
+    virtual void
+    putRawData( const void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) = 0;
 
     /**\brief Copy data out of this vector
      * \param[out] buf  Buffer to copy to
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of buffer
      * \details The Vector should be pre-allocated to the correct size (getLocalSize())
      */
-    virtual void getRawData( void *buf, const typeID &id ) const = 0;
+    virtual void
+    getRawData( void *buf, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const = 0;
 
     /**
      * \brief Set values in the vector by their local offset
@@ -268,12 +445,16 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
      */
-    virtual void
-    setValuesByLocalID( size_t num, const size_t *indices, const void *vals, const typeID &id ) = 0;
+    virtual void setValuesByLocalID( size_t num,
+                                     const size_t *indices,
+                                     const void *vals,
+                                     const typeID &id,
+                                     AMP::Utilities::MemoryType buf_loc ) = 0;
 
     /**
      * \brief Set ghost values using global identifier
@@ -281,13 +462,15 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of indices and vals buffers
      *
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{vals}_i \f$
      */
     virtual void setGhostValuesByGlobalID( size_t num,
                                            const size_t *indices,
                                            const void *vals,
-                                           const typeID &id ) = 0;
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc ) = 0;
 
     /**
      * \brief Add values to vector entities by their local offset
@@ -295,13 +478,17 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will set the owned values for this core.  All indices are
      * from 0.
      * \f$ \mathit{this}_{\mathit{indices}_i} = \mathit{this}_{\mathit{indices}_i} +
      * \mathit{vals}_i \f$
      */
-    virtual void
-    addValuesByLocalID( size_t num, const size_t *indices, const void *vals, const typeID &id ) = 0;
+    virtual void addValuesByLocalID( size_t num,
+                                     const size_t *indices,
+                                     const void *vals,
+                                     const typeID &id,
+                                     AMP::Utilities::MemoryType buf_loc ) = 0;
 
     /**
      * \brief Add shared values using global identifier
@@ -309,11 +496,13 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to add
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of indices and vals buffers
      */
     virtual void addGhostValuesByGlobalID( size_t num,
                                            const size_t *indices,
                                            const void *vals,
-                                           const typeID &id ) = 0;
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc ) = 0;
 
     /**
      * \brief get ghosted values to add to off-proc elements
@@ -321,13 +510,15 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[in] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get the ghosted updates this processor has made.  All indices are
      * from global 0.
      */
     virtual void getGhostAddValuesByGlobalID( size_t num,
                                               const size_t *indices,
                                               void *vals,
-                                              const typeID &id ) const = 0;
+                                              const typeID &id,
+                                              AMP::Utilities::MemoryType buf_loc ) const = 0;
 
 
     /**
@@ -336,10 +527,14 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get any value used by this core.
      */
-    virtual void
-    getValuesByLocalID( size_t num, const size_t *indices, void *vals, const typeID &id ) const = 0;
+    virtual void getValuesByLocalID( size_t num,
+                                     const size_t *indices,
+                                     void *vals,
+                                     const typeID &id,
+                                     AMP::Utilities::MemoryType buf_loc ) const = 0;
 
     /**
      * \brief Get ghost values in the vector by their global offset
@@ -347,20 +542,24 @@ public: // Advanced (virtual) get/set values
      * \param[in] indices the indices of the values to set
      * \param[out] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of indices and vals buffers
      * \details This will get any value owned by this core.
      */
     virtual void getGhostValuesByGlobalID( size_t num,
                                            const size_t *indices,
                                            void *vals,
-                                           const typeID &id ) const = 0;
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc ) const = 0;
     /**
      * \brief Get all ghost values in the vector
      * \param[out] vals the values to place in the vector
      * \param[in] id   typeID of raw data
+     * \param[in] buf_loc Memory space of vals buffer
      * \details This will get any value owned by this core.
      * \return Returns the number of ghost values
      */
-    virtual size_t getAllGhostValues( void *vals, const typeID &id ) const = 0;
+    virtual size_t
+    getAllGhostValues( void *vals, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const = 0;
 
 
 public: // Advanced functions
@@ -524,11 +723,9 @@ public: // Virtual functions dealing with the update status
     virtual void setNoGhosts();
 
     /** \brief returns the memory location for data
+     * \param[in] i  Which block
      */
-    virtual AMP::Utilities::MemoryType getMemoryLocation() const
-    {
-        return AMP::Utilities::MemoryType::host;
-    }
+    virtual AMP::Utilities::MemoryType getMemoryLocation( size_t i = 0 ) const;
 
     virtual void
     print( std::ostream &os, const std::string &name = "A", const std::string &prefix = "" ) const;
@@ -678,10 +875,9 @@ protected:                   // Internal data
     // Friends
     friend class VectorOperations;
 
-
 public:
     //! Default constructors
-    VectorData()                     = default;
+    VectorData() {}
     VectorData( const VectorData & ) = delete;
 };
 

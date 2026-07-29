@@ -292,6 +292,13 @@ Vector::shared_ptr createVectorAdaptor( const std::string &name,
                                         T *data,
                                         const AMP::Utilities::MemoryType memType );
 
+template<typename T>
+Vector::shared_ptr createVectorAdaptor( const std::string &name,
+                                        std::shared_ptr<AMP::Discretization::DOFManager> DOFs,
+                                        T *data,
+                                        const AMP::Utilities::MemoryType memType,
+                                        const AMP::Utilities::Backend backend );
+
 } // namespace AMP::LinearAlgebra
 
 #endif

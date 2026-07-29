@@ -2,6 +2,8 @@
 #define included_AMP_VectorOperationsKokkos
 
 #include "AMP/AMP_TPLs.h"
+#include "AMP/utils/AMPManager.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/data/VectorData.h"
 #include "AMP/vectors/operations/default/VectorOperationsDefault.h"
 
@@ -21,15 +23,6 @@ template<typename TYPE = double>
 class VectorOperationsKokkos : public VectorOperations
 {
 public:
-    // type aliases for execution and view spaces
-    using ExecSpaceHost = Kokkos::DefaultHostExecutionSpace;
-    using ViewSpaceHost = typename ExecSpaceHost::memory_space;
-    #ifdef AMP_USE_DEVICE
-    using ExecSpaceDevice  = Kokkos::DefaultExecutionSpace;
-    using ViewSpaceDevice  = typename ExecSpaceDevice::memory_space;
-    using ViewSpaceManaged = Kokkos::SharedSpace;
-    #endif
-
     // Constructor
     VectorOperationsKokkos() : d_default_ops( std::make_shared<VectorOperationsDefault<TYPE>>() ) {}
 
@@ -46,7 +39,6 @@ public:
     void setToScalar( const Scalar &alpha, VectorData &z ) override;
     void setRandomValues( VectorData &x ) override;
     void copy( const VectorData &x, VectorData &z ) override;
-    void copyCast( const VectorData &x, VectorData &z ) override;
     void scale( const Scalar &alpha, const VectorData &x, VectorData &y ) override;
     void scale( const Scalar &alpha, VectorData &x ) override;
     void add( const VectorData &x, const VectorData &y, VectorData &z ) override;
@@ -86,10 +78,6 @@ public:
                       const Scalar &tol = 1e-6 ) const override;
 
 protected:
-    ExecSpaceHost d_exec_host;
-    #ifdef AMP_USE_DEVICE
-    ExecSpaceDevice d_exec_device;
-    #endif
     std::shared_ptr<VectorOperationsDefault<TYPE>> d_default_ops;
 };
 

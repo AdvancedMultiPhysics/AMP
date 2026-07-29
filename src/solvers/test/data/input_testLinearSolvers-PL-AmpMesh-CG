@@ -12,7 +12,6 @@ Mesh{
 
 LinearOperator {
   name="LinearOperator"
-  MemoryLocation = "managed"
   print_info_level = 1
 }
 

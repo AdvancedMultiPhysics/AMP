@@ -29,7 +29,7 @@ class SiloIO : public AMP::IO::Writer
 {
 public:
     //!  Default constructor
-    SiloIO();
+    SiloIO( const WriterParameters &properties = WriterParameters() );
 
     //!  Default destructor
     virtual ~SiloIO();

@@ -31,10 +31,11 @@ void createMesh( AMP::UnitTest *ut, const std::string &input_file )
     // Create the silo writer and write the mesh
     AMP::IO::recursiveMkdir( "output" );
     std::string output_file = "output/" + input_file;
-    auto siloWriter         = AMP::IO::Writer::buildWriter( "Silo" );
+    AMP::IO::Writer::WriterParameters writerParams;
+    writerParams.decomposition = AMP::IO::Writer::DecompositionType::SINGLE;
+    auto siloWriter            = AMP::IO::Writer::buildWriter( "Silo", writerParams );
     if ( siloWriter != nullptr ) {
         siloWriter->registerMesh( mesh, 1 );
-        siloWriter->setDecomposition( 1 );
         siloWriter->writeFile( output_file, 0 );
     }
 

@@ -17,7 +17,7 @@ namespace AMP::IO {
 /************************************************************
  * Constructor/Destructor                                    *
  ************************************************************/
-AsciiWriter::AsciiWriter() : AMP::IO::Writer() {}
+AsciiWriter::AsciiWriter( const WriterParameters &properties ) : AMP::IO::Writer( properties ) {}
 AsciiWriter::~AsciiWriter() = default;
 
 
@@ -32,6 +32,7 @@ Writer::WriterProperties AsciiWriter::getProperties() const
     properties.registerVector = true;
     properties.registerMatrix = true;
     properties.enabled        = true;
+    properties.decomposition  = d_decomposition;
     return properties;
 }
 

@@ -36,19 +36,49 @@ namespace AMP::IO {
 class Writer
 {
 public:
+    enum class VectorType : uint8_t { DOUBLE, SINGLE, INT, UINT8 };
+    enum class DecompositionType : uint8_t { SINGLE = 1, MULTIPLE = 2 };
     struct WriterProperties {
-        std::string type;            // Writer type: Silo, HDF5, Ascii
-        std::string extension;       // The primary file extension for the writer
-        bool registerMesh;           // Does the writer support registering a mesh
-        bool registerVector;         // Does the writer support registering a vector
-        bool registerVectorWithMesh; // Does the writer support registering a vector with a mesh
-        bool registerMatrix;         // Does the writer support registering a matrix
-        bool enabled;                // Is the current writer enabled
-        bool isNull;                 // Is the current writer a null writer
+        std::string type;            //!< Writer type: Silo, HDF5, Ascii
+        std::string extension;       //!< The primary file extension for the writer
+        bool registerMesh;           //!< Does the writer support registering a mesh
+        bool registerVector;         //!< Does the writer support registering a vector
+        bool registerVectorWithMesh; //!< Does the writer support registering a vector with a mesh
+        bool registerMatrix;         //!< Does the writer support registering a matrix
+        bool enabled;                //!< Is the current writer enabled
+        bool isNull;                 //!< Is the current writer a null writer
+        DecompositionType decomposition; //!< Decomposition method to use
         WriterProperties();
     };
-    enum class VectorType : uint8_t { DOUBLE, SINGLE, INT };
-    enum class DecompositionType : uint8_t { SINGLE, MULTIPLE };
+    struct WriterParameters {
+        /**
+         * @brief Decomposition method to use.
+         *
+         * - SINGLE:
+         *   Writes all data to a single file.
+         *   Requires a serial write and will have the worst performance.
+         *
+         * - MULTIPLE:
+         *   Each processor writes a separate file, and a separate summary file is written.
+         *   Typically better performance at large scale, but many files are written simultaneously.
+         */
+        DecompositionType decomposition = DecompositionType::MULTIPLE;
+
+        /**
+         * @brief Enable referencing static variables across timesteps.
+         *
+         * If true, static data is written once and then referenced for other timesteps.
+         * This can significantly reduce the amount of data written, but increases the
+         * complexity of the output format.
+         */
+        bool enableStaticData = false;
+
+        //! Communicator to use
+        AMP_MPI comm = AMP_COMM_WORLD;
+
+        //! Default constructor
+        WriterParameters() {}
+    };
 
 
 public:
@@ -62,10 +92,10 @@ public:
      *                  "Ascii" - A simple ascii writer
      *                  "HDF5"  - A simple HDF5 writer
      *                  "auto"  - Choose the writer based on the comm size and compiled packages
-     * \param[in] comm  Communicator to use
+     * \param[in] properties  Parameters used to initialize the writer
      */
-    static std::shared_ptr<AMP::IO::Writer> buildWriter( std::string type,
-                                                         AMP_MPI comm = AMP_COMM_WORLD );
+    static std::shared_ptr<AMP::IO::Writer>
+    buildWriter( std::string type, const WriterParameters &properties = WriterParameters() );
 
     /**
      * \brief   Function to build a writer
@@ -87,20 +117,6 @@ public:
 
     //!  Function to return the file extension
     std::string getExtension() const;
-
-    /**
-     * \brief   Function to set the file decomposition
-     * \details This function will set the method used for file IO.  When writing files,
-     *    there are different decompositions that affect the performance and usability
-     *    of the output files.  By default, this writer will generate a single file.
-     * \param[in] decomposition   Decomposition method to use:
-     *             1:  This will write all of the data to a single file.
-     *                 Note that this requires a serial write and will have the worst performance
-     *             2:  Each processor will write a separate file and a separate
-     *                 summary file will be written.  Note that this will have better performance
-     *                 at large scale, but will write many files simultaneously.
-     */
-    virtual void setDecomposition( int decomposition );
 
     //!  Function to read a file
     virtual void readFile( const std::string &fname ) = 0;
@@ -173,6 +189,10 @@ public:
      */
     void registerMatrix( std::shared_ptr<AMP::LinearAlgebra::Matrix> mat,
                          const std::string &name = "" );
+
+    //! Return the communicator
+    inline const AMP_MPI &getComm() const { return d_comm; }
+
 
 protected: // Internal structures
     // Structure to hold id
@@ -277,7 +297,7 @@ protected: // Internal structures
 
 protected: // Protected member functions
     // Default constructor
-    Writer() = default;
+    Writer( const WriterParameters &properties );
 
     // Given a filename, strip the directory information and create the directories if needed
     void createDirectories( const std::string &filename );
@@ -312,25 +332,16 @@ protected: // Protected member functions
     template<class TYPE>
     void syncData( std::vector<TYPE> &data, int root ) const;
 
-protected: // Internal data
-    // The comm of the writer
-    AMP_MPI d_comm = AMP_COMM_WORLD;
 
-    // The decomposition to use
-    DecompositionType d_decomposition = DecompositionType::MULTIPLE;
-
-    // List of all meshes and their ids
-    std::map<GlobalID, baseMeshData> d_baseMeshes;
-    std::map<GlobalID, multiMeshData> d_multiMeshes;
-
-    // List of all independent vectors that have been registered
-    std::map<GlobalID, VectorData> d_vectors;
-
-    // List of all independent matrices that have been registered
-    std::map<GlobalID, MatrixData> d_matrices;
-
-    // List of all vectors that have been registered (work on removing)
-    std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>> d_vectorsMesh;
+protected:
+    AMP_MPI d_comm;                                  //!< The comm of the writer
+    DecompositionType d_decomposition;               //!< The decomposition to use
+    std::map<GlobalID, baseMeshData> d_baseMeshes;   //!< List of all base meshes and their ids
+    std::map<GlobalID, multiMeshData> d_multiMeshes; //!< List of all multimeshes and their ids
+    std::map<GlobalID, VectorData> d_vectors;        //!< List of independent vectors
+    std::map<GlobalID, MatrixData> d_matrices;       //!< List of all independent matrices
+    std::vector<std::shared_ptr<AMP::LinearAlgebra::Vector>>
+        d_vectorsMesh; //!< List of all vectors (need to remove)
 };
 
 

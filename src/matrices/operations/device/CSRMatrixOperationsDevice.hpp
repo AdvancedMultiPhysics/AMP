@@ -6,15 +6,11 @@
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/device/CSRLocalMatrixOperationsDevice.h"
 #include "AMP/matrices/operations/device/CSRMatrixOperationsDevice.h"
+#include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/utils/typeid.h"
-
-#include "thrust/device_vector.h"
-#include "thrust/execution_policy.h"
-#include "thrust/extrema.h"
-
-#include <algorithm>
 
 #include "ProfilerApp.h"
 
@@ -40,24 +36,24 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
 
     out->zero();
 
+    auto inData            = in->getVectorData();
     auto outData           = out->getVectorData();
     scalar_t *outDataBlock = outData->getRawDataBlock<scalar_t>( 0 );
 
     AMP_DEBUG_ASSERT( outDataBlock );
-    AMP_DEBUG_INSIST( csrData->d_memory_location == AMP::Utilities::getMemoryType( outDataBlock ),
+    AMP_DEBUG_ASSERT( Config::device_accessible );
+    AMP_DEBUG_INSIST( in->getMemoryLocation() >= AMP::Utilities::MemoryType::managed,
+                      "Input vector from wrong memory space" );
+    AMP_DEBUG_INSIST( out->getMemoryLocation() >= AMP::Utilities::MemoryType::managed,
                       "Output vector from wrong memory space" );
 
     if ( !diagMatrix->isEmpty() ) {
         PROFILE( "CSRMatrixOperationsDevice::mult(local)" );
-        auto inData = in->getVectorData();
         AMP_DEBUG_INSIST(
             inData->numberOfDataBlocks() == 1,
             "CSRMatrixOperationsDevice::mult only implemented for vectors with one data block" );
         const scalar_t *inDataBlock = inData->getRawDataBlock<scalar_t>( 0 );
         AMP_DEBUG_ASSERT( inDataBlock );
-        AMP_DEBUG_INSIST( csrData->d_memory_location ==
-                              AMP::Utilities::getMemoryType( inDataBlock ),
-                          "Input vector from wrong memory space" );
         CSRLocalMatrixOperationsDevice<Config>::mult( inDataBlock, diagMatrix, outDataBlock );
     }
 
@@ -68,17 +64,18 @@ void CSRMatrixOperationsDevice<Config>::mult( std::shared_ptr<const Vector> in,
         if constexpr ( std::is_same_v<size_t, gidx_t> ) {
             // column map can be passed to get ghosts function directly
             auto colMap = offdMatrix->getColumnMap();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else if constexpr ( sizeof( size_t ) == sizeof( gidx_t ) ) {
             auto colMap = reinterpret_cast<size_t *>( offdMatrix->getColumnMap() );
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         } else {
             // Fall back to forcing a copy-cast inside matrix data
             auto colMap = offdMatrix->getColumnMapSizeT();
-            in->getGhostValuesByGlobalID( nGhosts, colMap, ghosts );
+            inData->getGhostValuesByGlobalID( nGhosts, colMap, ghosts, Config::mem_loc );
         }
         CSRLocalMatrixOperationsDevice<Config>::mult( ghosts, offdMatrix, outDataBlock );
     }
+    outData->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -135,15 +132,8 @@ void CSRMatrixOperationsDevice<Config>::matMatMult( std::shared_ptr<MatrixData> 
                 "CSRMatrixOperationsDefault::matMatMult got incompatible local dimensions" );
 
     // Verify that all matrices have the same memory space and that it isn't device
-    const auto memLocA = csrDataA->getMemoryLocation();
-    const auto memLocB = csrDataB->getMemoryLocation();
-    const auto memLocC = csrDataC->getMemoryLocation();
-    AMP_INSIST( memLocA == AMP::Utilities::MemoryType::device,
+    AMP_INSIST( csrDataA->d_memory_location == AMP::Utilities::MemoryType::device,
                 "CSRMatrixOperationsDevice::matMatMult only implemented for device matrices" );
-    AMP_INSIST( memLocA == memLocB,
-                "CSRMatrixOperationsDevice::matMatMult A and B must have the same memory type" );
-    AMP_INSIST( memLocA == memLocC,
-                "CSRMatrixOperationsDevice::matMatMult A and C must have the same memory type" );
 
     // Create an SpGEMM helper object and call multiply
     CSRMatrixSpGEMMDevice<Config> spgemm( csrDataA, csrDataB, csrDataC );
@@ -162,9 +152,6 @@ void CSRMatrixOperationsDevice<Config>::axpy( AMP::Scalar alpha_in,
 
     AMP_DEBUG_ASSERT( csrDataX );
     AMP_DEBUG_ASSERT( csrDataY );
-
-    AMP_DEBUG_INSIST( csrDataX->d_memory_location == csrDataY->d_memory_location,
-                      "CSRMatrixOperationsDevice::axpy X and Y must be in same memory space" );
 
     auto diagMatrixX = csrDataX->getDiagMatrix();
     auto offdMatrixX = csrDataX->getOffdMatrix();
@@ -249,6 +236,7 @@ void CSRMatrixOperationsDevice<Config>::extractDiagonal( MatrixData const &A,
 
     scalar_t *buf_p = buf->getRawDataBlock<scalar_t>();
     CSRLocalMatrixOperationsDevice<Config>::extractDiagonal( diagMatrix, buf_p );
+    buf->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename Config>
@@ -292,8 +280,12 @@ AMP::Scalar CSRMatrixOperationsDevice<Config>::LinfNorm( MatrixData const &A ) c
     }
 
     // Reduce row sums to get global Linf norm
-    auto max_norm = *thrust::max_element( thrust::device, rowSums.begin(), rowSums.end() );
-    AMP_MPI comm  = csrData->getComm();
+    auto max_norm =
+        Utilities::Algorithms::max_element( rowSums.data().get(),
+                                            nRows,
+                                            Utilities::MemoryType::device,
+                                            csrData->d_acceleration_context.getStream() );
+    AMP_MPI comm = csrData->getComm();
     return comm.maxReduce<scalar_t>( max_norm );
 }
 
@@ -323,57 +315,6 @@ void CSRMatrixOperationsDevice<Config>::copy( const MatrixData &X, MatrixData &Y
     CSRLocalMatrixOperationsDevice<Config>::copy( diagMatrixX, diagMatrixY );
     if ( csrDataX->hasOffDiag() ) {
         CSRLocalMatrixOperationsDevice<Config>::copy( offdMatrixX, offdMatrixY );
-    }
-}
-
-template<typename Config>
-void CSRMatrixOperationsDevice<Config>::copyCast( const MatrixData &X, MatrixData &Y )
-{
-    PROFILE( "CSRMatrixOperationsDevice::copyCast" );
-
-    auto csrDataY = getCSRMatrixData<Config>( Y );
-    AMP_DEBUG_ASSERT( csrDataY );
-    if ( X.getCoeffType() == getTypeID<double>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f64>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else if ( X.getCoeffType() == getTypeID<float>() ) {
-        using ConfigIn = typename Config::template set_scalar_t<scalar::f32>::template set_alloc_t<
-            Config::allocator>;
-        auto csrDataX = getCSRMatrixData<ConfigIn>( const_cast<MatrixData &>( X ) );
-        AMP_DEBUG_ASSERT( csrDataX );
-
-        copyCast<ConfigIn>( csrDataX, csrDataY );
-    } else {
-        AMP_ERROR( "Can't copyCast from the given matrix, policy not supported" );
-    }
-}
-
-template<typename Config>
-template<typename ConfigIn>
-void CSRMatrixOperationsDevice<Config>::copyCast(
-    CSRMatrixData<typename ConfigIn::template set_alloc_t<Config::allocator>> *X, matrixdata_t *Y )
-{
-    PROFILE( "CSRMatrixOperationsDevice::copyCast" );
-
-    AMP_DEBUG_INSIST( X->d_memory_location == Y->d_memory_location,
-                      "CSRMatrixOperationsDevice::copyCast X and Y must be in same memory space" );
-
-    auto diagMatrixX = X->getDiagMatrix();
-    auto offdMatrixX = X->getOffdMatrix();
-
-    auto diagMatrixY = Y->getDiagMatrix();
-    auto offdMatrixY = Y->getOffdMatrix();
-
-    AMP_DEBUG_ASSERT( diagMatrixX && offdMatrixX );
-    AMP_DEBUG_ASSERT( diagMatrixY && offdMatrixY );
-
-    localops_t::template copyCast<ConfigIn>( diagMatrixX, diagMatrixY );
-    if ( X->hasOffDiag() ) {
-        localops_t::template copyCast<ConfigIn>( offdMatrixX, offdMatrixY );
     }
 }
 

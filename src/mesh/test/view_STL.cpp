@@ -40,12 +40,13 @@ int main( int argc, char **argv )
         auto mesh = AMP::Mesh::MeshFactory::create( params );
 
         // Create the silo writer and register the data
-        auto siloWriter = AMP::IO::Writer::buildWriter( "Silo" );
+        AMP::IO::Writer::WriterParameters writerParams;
+        writerParams.decomposition = AMP::IO::Writer::DecompositionType::SINGLE;
+        auto siloWriter            = AMP::IO::Writer::buildWriter( "Silo", writerParams );
         siloWriter->registerMesh( mesh, 1 );
         globalComm.barrier();
 
         // Write the output
-        siloWriter->setDecomposition( 1 );
         siloWriter->writeFile( filename2, 0 );
         globalComm.barrier();
     }

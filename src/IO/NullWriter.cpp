@@ -18,8 +18,10 @@ Writer::WriterProperties NullWriter::getProperties() const
     properties.registerMatrix         = true;
     properties.enabled                = true;
     properties.isNull                 = true;
+    properties.decomposition          = d_decomposition;
     return properties;
 }
+NullWriter::NullWriter( const WriterParameters &params ) : Writer( params ) {}
 
 
 } // namespace AMP::IO

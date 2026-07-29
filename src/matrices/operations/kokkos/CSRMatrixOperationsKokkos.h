@@ -9,6 +9,7 @@
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
 #include "AMP/matrices/operations/kokkos/CSRLocalMatrixOperationsKokkos.h"
 #include "AMP/utils/Memory.h"
+#include "AMP/utils/device/Device.h"
 #include "AMP/vectors/Vector.h"
 
 #ifdef AMP_USE_DEVICE
@@ -23,24 +24,7 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config,
-    #ifdef AMP_USE_DEVICE
-         class ExecSpace = typename std::conditional<alloc_info<Config::allocator>::mem_loc ==
-                                                         AMP::Utilities::MemoryType::host,
-                                                     Kokkos::DefaultHostExecutionSpace,
-                                                     Kokkos::DefaultExecutionSpace>::type,
-         class ViewSpace = typename std::conditional<
-             alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::host,
-             Kokkos::HostSpace,
-             typename std::conditional<
-                 alloc_info<Config::allocator>::mem_loc == AMP::Utilities::MemoryType::managed,
-                 Kokkos::SharedSpace,
-                 typename Kokkos::DefaultExecutionSpace::memory_space>::type>::type
-    #else
-         class ExecSpace = Kokkos::DefaultHostExecutionSpace,
-         class ViewSpace = Kokkos::HostSpace
-    #endif
-         >
+template<typename Config>
 class CSRMatrixOperationsKokkos : public MatrixOperations
 {
 public:
@@ -51,18 +35,16 @@ public:
     using matrixdata_t      = CSRMatrixData<Config>;
     using localmatrixdata_t = typename matrixdata_t::localmatrixdata_t;
 
-    using localops_t = CSRLocalMatrixOperationsKokkos<Config, ExecSpace, ViewSpace>;
+    using localops_t = CSRLocalMatrixOperationsKokkos<Config>;
 
     using gidx_t   = typename Config::gidx_t;
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
-    CSRMatrixOperationsKokkos()
-        : d_exec_space(),
-          d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) ),
-          d_use_kokkoskernels_spgemm( false )
+    CSRMatrixOperationsKokkos() : d_use_kokkoskernels_spgemm( false )
     {
+        d_localops_diag = std::make_shared<localops_t>();
+        d_localops_offd = std::make_shared<localops_t>();
     }
 
     /** \brief  Matrix-vector multiplication
@@ -172,16 +154,6 @@ public:
      */
     void copy( const MatrixData &X, MatrixData &Y ) override;
 
-    /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
-     * as x and copy the coefficients after up/down casting
-     * \param[in] x matrix data to copy from
-     * \param[in] y matrix data to copy to after up/down casting the coefficients
-     */
-    void copyCast( const MatrixData &X, MatrixData &Y ) override;
-
-    template<typename ConfigIn>
-    static void copyCast( CSRMatrixData<ConfigIn> *X, CSRMatrixData<Config> *Y );
-
     std::string type() const override { return "CSRMatrixOperationsKokkos"; }
 
     /**
@@ -192,14 +164,13 @@ public:
     void writeRestart( int64_t fid ) const override;
 
     CSRMatrixOperationsKokkos( int64_t, AMP::IO::RestartManager * )
-        : d_exec_space(),
-          d_localops_diag( std::make_shared<localops_t>( d_exec_space ) ),
-          d_localops_offd( std::make_shared<localops_t>( d_exec_space ) )
+        : d_use_kokkoskernels_spgemm( false )
     {
+        d_localops_diag = std::make_shared<localops_t>();
+        d_localops_offd = std::make_shared<localops_t>();
     }
 
 protected:
-    ExecSpace d_exec_space;
     std::shared_ptr<localops_t> d_localops_diag;
     std::shared_ptr<localops_t> d_localops_offd;
 

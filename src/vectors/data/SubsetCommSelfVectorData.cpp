@@ -42,13 +42,17 @@ const void *SubsetCommSelfVectorData::getRawDataBlockAsVoid( size_t i ) const
 {
     return d_parentData->getRawDataBlockAsVoid( i );
 }
-void SubsetCommSelfVectorData::putRawData( const void *in, const typeID &id )
+void SubsetCommSelfVectorData::putRawData( const void *in,
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc )
 {
-    d_parentData->putRawData( in, id );
+    d_parentData->putRawData( in, id, buf_loc );
 }
-void SubsetCommSelfVectorData::getRawData( void *out, const typeID &id ) const
+void SubsetCommSelfVectorData::getRawData( void *out,
+                                           const typeID &id,
+                                           AMP::Utilities::MemoryType buf_loc ) const
 {
-    d_parentData->putRawData( out, id );
+    d_parentData->putRawData( out, id, buf_loc );
 }
 
 
@@ -76,49 +80,49 @@ bool SubsetCommSelfVectorData::containsGlobalElement( size_t i ) const { return 
 void SubsetCommSelfVectorData::addValuesByLocalID( size_t N,
                                                    const size_t *ndx,
                                                    const void *vals,
-                                                   const typeID &id )
+                                                   const typeID &id,
+                                                   AMP::Utilities::MemoryType buf_loc )
 {
-    return d_parentData->addValuesByLocalID( N, ndx, vals, id );
+    return d_parentData->addValuesByLocalID( N, ndx, vals, id, buf_loc );
 }
 void SubsetCommSelfVectorData::setValuesByLocalID( size_t N,
                                                    const size_t *ndx,
                                                    const void *vals,
-                                                   const typeID &id )
+                                                   const typeID &id,
+                                                   AMP::Utilities::MemoryType buf_loc )
 {
-    return d_parentData->setValuesByLocalID( N, ndx, vals, id );
+    return d_parentData->setValuesByLocalID( N, ndx, vals, id, buf_loc );
 }
 void SubsetCommSelfVectorData::getValuesByLocalID( size_t N,
                                                    const size_t *ndx,
                                                    void *vals,
-                                                   const typeID &id ) const
+                                                   const typeID &id,
+                                                   AMP::Utilities::MemoryType buf_loc ) const
 {
-    return d_parentData->getValuesByLocalID( N, ndx, vals, id );
+    return d_parentData->getValuesByLocalID( N, ndx, vals, id, buf_loc );
 }
-void SubsetCommSelfVectorData::setGhostValuesByGlobalID( size_t,
-                                                         const size_t *,
-                                                         const void *,
-                                                         const typeID & )
-{
-}
-void SubsetCommSelfVectorData::addGhostValuesByGlobalID( size_t,
-                                                         const size_t *,
-                                                         const void *,
-                                                         const typeID & )
+void SubsetCommSelfVectorData::setGhostValuesByGlobalID(
+    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
 {
 }
-void SubsetCommSelfVectorData::getGhostValuesByGlobalID( size_t,
-                                                         const size_t *,
-                                                         void *,
-                                                         const typeID & ) const
+void SubsetCommSelfVectorData::addGhostValuesByGlobalID(
+    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
 {
 }
-void SubsetCommSelfVectorData::getGhostAddValuesByGlobalID( size_t,
-                                                            const size_t *,
-                                                            void *,
-                                                            const typeID & ) const
+void SubsetCommSelfVectorData::getGhostValuesByGlobalID(
+    size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const
 {
 }
-size_t SubsetCommSelfVectorData::getAllGhostValues( void *, const typeID & ) const { return 0; }
+void SubsetCommSelfVectorData::getGhostAddValuesByGlobalID(
+    size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const
+{
+}
+size_t SubsetCommSelfVectorData::getAllGhostValues( void *,
+                                                    const typeID &,
+                                                    AMP::Utilities::MemoryType ) const
+{
+    return 0;
+}
 void SubsetCommSelfVectorData::swapData( VectorData &rhs )
 {
     auto s = dynamic_cast<SubsetCommSelfVectorData *>( &rhs );

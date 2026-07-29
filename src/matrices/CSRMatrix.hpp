@@ -3,6 +3,7 @@
 
 #include "AMP/AMP_TPLs.h"
 #include "AMP/matrices/CSRMatrix.h"
+#include "AMP/matrices/CSRVisit.h"
 #include "AMP/matrices/MatrixParameters.h"
 #include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/matrices/operations/default/CSRMatrixOperationsDefault.h"
@@ -35,6 +36,16 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixParametersBase> params ) : M
 
     bool set_ops = false;
 
+    // check backend compatibility and reset if incompatible
+    auto data_loc = matrixdata_t::d_memory_location;
+    if ( !backendMemoryTypeCompatible( params->d_backend, data_loc ) ) {
+        std::string in_back( getString( params->d_backend ) );
+        params->d_backend = getDefaultBackend( data_loc );
+        AMP::pout << "CSRMatrix: backend " << in_back
+                  << " not compatible with selected memory location. Falling back to "
+                  << getString( params->d_backend ) << std::endl;
+    }
+
     if ( params->d_backend == AMP::Utilities::Backend::Hip_Cuda ) {
 #ifdef AMP_USE_DEVICE
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
@@ -66,10 +77,10 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixData> data ) : Matrix( data 
 {
     PROFILE( "CSRMatrix::constructor" );
 
-    auto backend = data->getBackend();
     bool set_ops = false;
 
-    if ( backend == AMP::Utilities::Backend::Hip_Cuda ) {
+    auto params = data->d_pParameters;
+    if ( params->d_backend == AMP::Utilities::Backend::Hip_Cuda ) {
 #ifdef AMP_USE_DEVICE
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
         set_ops     = true;
@@ -78,7 +89,7 @@ CSRMatrix<Config>::CSRMatrix( std::shared_ptr<MatrixData> data ) : Matrix( data 
 #endif
     }
 
-    if ( backend == AMP::Utilities::Backend::Kokkos ) {
+    if ( params->d_backend == AMP::Utilities::Backend::Kokkos ) {
 #ifdef AMP_USE_KOKKOS
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
         set_ops     = true;
@@ -129,20 +140,17 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType m
 
     auto data = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
 
-    if ( memType == AMP::Utilities::getAllocatorMemoryType<typename Config::allocator_type>() ) {
+    if ( memType == Config::mem_loc ) {
         return this->clone();
     } else if ( memType == AMP::Utilities::MemoryType::host ) {
-        auto dataHost = data->template migrate<ConfigHost>( backend );
-        return std::make_shared<CSRMatrix<ConfigHost>>( dataHost );
+        return this->migrate<ConfigHost>( backend );
     }
 
 #ifdef AMP_USE_DEVICE
     if ( memType == AMP::Utilities::MemoryType::managed ) {
-        auto dataManaged = data->template migrate<ConfigManaged>( backend );
-        return std::make_shared<CSRMatrix<ConfigManaged>>( dataManaged );
+        return this->migrate<ConfigManaged>( backend );
     } else if ( memType == AMP::Utilities::MemoryType::device ) {
-        auto dataDevice = data->template migrate<ConfigDevice>( backend );
-        return std::make_shared<CSRMatrix<ConfigDevice>>( dataDevice );
+        return this->migrate<ConfigDevice>( backend );
     }
 #endif
 
@@ -152,30 +160,61 @@ std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::MemoryType m
 
 template<typename Config>
 template<typename ConfigOut>
-std::shared_ptr<Matrix> CSRMatrix<Config>::migrate() const
-{
-    return migrate<ConfigOut>( AMP::Utilities::getDefaultBackend(
-        AMP::Utilities::getAllocatorMemoryType<typename ConfigOut::allocator_type>() ) );
-}
-
-template<typename Config>
-template<typename ConfigOut>
 std::shared_ptr<Matrix> CSRMatrix<Config>::migrate( AMP::Utilities::Backend backend ) const
 {
     PROFILE( "CSRMatrix::migrate" );
 
-    if constexpr ( std::is_same_v<Config, ConfigOut> )
-        return this->clone();
+    if constexpr ( std::is_same_v<Config, ConfigOut> ) {
+        std::shared_ptr<Matrix> mat = this->clone();
+        mat->setBackend( backend );
+        return mat;
+    }
 
     auto data    = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
-    auto dataOut = data->template migrate<ConfigOut>( backend );
-    return std::make_shared<CSRMatrix<ConfigOut>>( dataOut );
+    auto dataOut = data->template migrate<ConfigOut>();
+    std::shared_ptr<Matrix> mat = std::make_shared<CSRMatrix<ConfigOut>>( dataOut );
+    mat->setBackend( backend );
+    return mat;
+}
+
+template<typename Config>
+std::shared_ptr<Matrix> CSRMatrix<Config>::redistribute( int new_nprocs ) const
+{
+    PROFILE( "CSRMatrix::redistribute" );
+
+    auto plan = AMP::Utilities::createGroupedRedistributionPlan( getComm(), new_nprocs );
+    return redistribute( plan );
+}
+
+template<typename Config>
+std::shared_ptr<Matrix>
+CSRMatrix<Config>::redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const
+{
+    PROFILE( "CSRMatrix::redistributeWithPlan" );
+
+    auto data = std::dynamic_pointer_cast<const CSRMatrixData<Config>>( getMatrixData() );
+    AMP_ASSERT( data );
+
+    auto redistributed = data->redistribute( plan );
+    if ( !redistributed ) {
+        return nullptr;
+    }
+    return std::make_shared<CSRMatrix<Config>>( redistributed );
 }
 
 template<typename Config>
 void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 {
     PROFILE( "CSRMatrix::setBackend" );
+
+    auto data_loc = matrixdata_t::d_memory_location;
+    if ( !backendMemoryTypeCompatible( backend, data_loc ) ) {
+        std::string in_back( getString( backend ) );
+        backend = getDefaultBackend( data_loc );
+        AMP::pout << "CSRMatrix: backend " << in_back
+                  << " not compatible with selected memory location. Falling back to "
+                  << getString( backend ) << std::endl;
+    }
 
     if ( backend == AMP::Utilities::Backend::Serial ||
          backend == AMP::Utilities::Backend::OpenMP ) {
@@ -192,7 +231,6 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
             return;
         }
         d_matrixOps = std::make_shared<CSRMatrixOperationsDevice<Config>>();
-        d_matrixData->setBackend( AMP::Utilities::Backend::Hip_Cuda );
 #else
         AMP_ERROR( "CSRMatrix::setBackend Can't set Hip_Cuda backend in non-device build" );
 #endif
@@ -202,7 +240,6 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
             return;
         }
         d_matrixOps = std::make_shared<CSRMatrixOperationsKokkos<Config>>();
-        d_matrixData->setBackend( AMP::Utilities::Backend::Kokkos );
 #else
         AMP_ERROR( "CSRMatrix::setBackend Can't set Kokkos backend in non-Kokkos build" );
 #endif
@@ -212,12 +249,31 @@ void CSRMatrix<Config>::setBackend( AMP::Utilities::Backend backend )
 }
 
 template<typename Config>
+AMP::Utilities::Backend CSRMatrix<Config>::getBackend() const
+{
+#ifdef AMP_USE_DEVICE
+    if ( std::dynamic_pointer_cast<CSRMatrixOperationsDevice<Config>>( d_matrixOps ) ) {
+        return AMP::Utilities::Backend::Hip_Cuda;
+    }
+#endif
+#ifdef AMP_USE_KOKKOS
+    if ( std::dynamic_pointer_cast<CSRMatrixOperationsKokkos<Config>>( d_matrixOps ) ) {
+        return AMP::Utilities::Backend::Kokkos;
+    }
+#endif
+    if ( !std::dynamic_pointer_cast<CSRMatrixOperationsDefault<Config>>( d_matrixOps ) ) {
+        AMP_ERROR( "CSRMatrix::getBackend: Can't identify matrix operations type" );
+    }
+
+    return AMP::Utilities::Backend::Serial;
+}
+
+template<typename Config>
 std::shared_ptr<Matrix> CSRMatrix<Config>::transpose() const
 {
     PROFILE( "CSRMatrix::transpose" );
 
     auto data = d_matrixData->transpose();
-    AMP_ASSERT( data->getBackend() == d_matrixData->getBackend() );
     return std::make_shared<CSRMatrix<Config>>( data );
 }
 
@@ -247,7 +303,7 @@ void CSRMatrix<Config>::multiply( std::shared_ptr<Matrix> other_op,
             getComm(),
             thisData->getLeftVariable(),
             otherData->getRightVariable(),
-            thisData->getBackend(),
+            getBackend(),
             std::function<std::vector<size_t>( size_t )>() );
 
         // Create the matrix
@@ -262,6 +318,20 @@ void CSRMatrix<Config>::multiply( std::shared_ptr<Matrix> other_op,
         auto resultData = std::dynamic_pointer_cast<matrixdata_t>( result->getMatrixData() );
         d_matrixOps->matMatMult( thisData, otherData, resultData );
     }
+}
+
+/********************************************************
+ * Copy and cast as needed from another CSRMatrix        *
+ ********************************************************/
+template<typename Config>
+void CSRMatrix<Config>::copyCast( std::shared_ptr<const Matrix> X )
+{
+    auto this_data = std::dynamic_pointer_cast<matrixdata_t>( getMatrixData() );
+    csrVisit( X, [this_data]( const auto csr_ptr ) {
+        using x_data_t = typename decltype( csr_ptr )::element_type::matrixdata_t;
+        auto X_data    = std::dynamic_pointer_cast<const x_data_t>( csr_ptr->getMatrixData() );
+        this_data->copyFrom( X_data );
+    } );
 }
 
 /********************************************************
@@ -289,7 +359,7 @@ Vector::shared_ptr CSRMatrix<Config>::createInputVector() const
 {
     PROFILE( "CSRMatrix::createInputVector" );
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getRightVariable();
-    auto backend      = d_matrixData->getBackend();
+    auto backend      = getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
     return createVector( getRightDOFManager(), var, true, memloc, backend );
 }
@@ -299,7 +369,7 @@ Vector::shared_ptr CSRMatrix<Config>::createOutputVector() const
 {
     PROFILE( "CSRMatrix::createOutputVector" );
     auto var          = std::dynamic_pointer_cast<matrixdata_t>( d_matrixData )->getLeftVariable();
-    auto backend      = d_matrixData->getBackend();
+    auto backend      = getBackend();
     const auto memloc = AMP::Utilities::getAllocatorMemoryType<allocator_type>();
     return createVector( getLeftDOFManager(), var, true, memloc, backend );
 }

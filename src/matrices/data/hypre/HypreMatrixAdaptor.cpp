@@ -7,11 +7,13 @@
 #include "AMP/utils/Algorithms.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
+#include "AMP/utils/device/Device.h"
 
 #include <numeric>
 
 #include "ProfilerApp.h"
 
+#include "HYPRE_config.h"
 #include "HYPRE_utilities.h"
 #include "_hypre_IJ_mv.h"
 #include "_hypre_parcsr_mv.h"
@@ -85,8 +87,8 @@ HypreMatrixAdaptor::HypreMatrixAdaptor( std::shared_ptr<MatrixData> matrixData )
 
 HypreMatrixAdaptor::~HypreMatrixAdaptor() { HYPRE_IJMatrixDestroy( d_matrix ); }
 
-template<class Config>
-void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Config>> csrData )
+template<class csr_data_ptr>
+void HypreMatrixAdaptor::initializeHypreMatrix( csr_data_ptr csrData )
 {
     // The hypre vs amp ownership rules require elaboration.
     // We set the internal owns_data flags on the diag and offd
@@ -104,18 +106,54 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
 
     PROFILE( "HypreMatrixAdaptor::initializeHypreMatrix" );
 
-    using alloc_t          = typename Config::allocator_type;
+    using csr_data_t       = typename csr_data_ptr::element_type;
+    using alloc_t          = typename csr_data_t::allocator_type;
     const auto csr_mem_loc = AMP::Utilities::getAllocatorMemoryType<alloc_t>();
 
-    HYPRE_MemoryLocation memory_location;
-    if ( csr_mem_loc <= AMP::Utilities::MemoryType::host ) {
-        memory_location = HYPRE_MEMORY_HOST;
-    } else {
+    // Set the hypre memory space, matching the space of the input matrix
+    // if possible.
+    // If matching spaces is not possible then issue a warning to the user,
+    // migrate the matrix, and call this function again. This lets the rest
+    // of the adaptor work with matching spaces.
+    HYPRE_MemoryLocation memory_location = HYPRE_MEMORY_HOST;
+    if ( csr_mem_loc > AMP::Utilities::MemoryType::host ) {
         // Hypre builds with only unified memory or only pure device memory,
         // and does not support both in one installation. They only recognize
         // device from the outside and map it down internally.
-        // This means we may need to migrate between device memory spaces...
+#if defined( HYPRE_USING_DEVICE_MEMORY )
+        if ( csr_mem_loc != AMP::Utilities::MemoryType::device ) {
+            // hypre built for device memory but this took in a managed-space matrix
+            AMP_WARN_ONCE(
+                "HypreMatrixAdaptor: Hypre was with GPU device memory support but a managed memory "
+                "matrix was passed in.\nMatrix will be migrated to device." );
+            auto migrated      = csrData->template migrate<HypreConfig<alloc::device>>();
+            d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
+            initializeHypreMatrix( migrated );
+            return;
+        }
         memory_location = HYPRE_MEMORY_DEVICE;
+#elif defined( HYPRE_USING_UNIFIED_MEMORY )
+        if ( csr_mem_loc != AMP::Utilities::MemoryType::managed ) {
+            // hypre built for managed memory but this took in a device-space matrix
+            AMP_WARN_ONCE(
+                "HypreMatrixAdaptor: Hypre was with GPU managed memory support but a device memory "
+                "matrix was passed in.\nMatrix will be migrated to managed memory." );
+            auto migrated      = csrData->template migrate<HypreConfig<alloc::managed>>();
+            d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
+            initializeHypreMatrix( migrated );
+            return;
+        }
+        memory_location = HYPRE_MEMORY_DEVICE;
+#else
+        // neither flag defined means we stay with host memory, issue a warning and move on
+        AMP_WARN_ONCE( "HypreMatrixAdaptor: Hypre was not built with GPU support but a device "
+                       "matrix was passed in.\nMatrix will be migrated to host, consider "
+                       "re-building Hypre with GPU support." );
+        auto migrated      = csrData->template migrate<HypreConfig<alloc::host>>();
+        d_csrdata_migrated = migrated; // hold reference ensuring raw pointers stay valid
+        initializeHypreMatrix( migrated );
+        return;
+#endif
     }
     HYPRE_SetMemoryLocation( memory_location );
 
@@ -152,64 +190,26 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
     const auto nnz_total_od = static_cast<HYPRE_BigInt>( csrData->numberOfNonZerosOffDiag() );
     const bool haveOffd     = csrData->hasOffDiag();
     const auto nrows        = last_row - first_row + 1;
+    auto [rs_d, cols_d, cols_loc_d, coeffs_d]     = csrData->getDiagMatrix()->getDataFields();
+    auto [rs_od, cols_od, cols_loc_od, coeffs_od] = csrData->getOffdMatrix()->getDataFields();
 
-    // define fields to extract, but don't pull out of data blocks until migration
-    // tested/handled
-    HYPRE_Int *rs_d = nullptr, *rs_od = nullptr;
-    HYPRE_Int *cols_loc_d = nullptr, *cols_loc_od = nullptr;
-    HYPRE_BigInt *cols_d = nullptr, *cols_od = nullptr;
-    HYPRE_Real *coeffs_d = nullptr, *coeffs_od = nullptr;
-
-    // migration is a no-op if types and memory space all match up
-    // do the migration to make the given data match the concrete
-    // hypre type
-    const auto hypre_mem_loc = AMP::Utilities::getMemoryType( diag->i );
-    if ( hypre_mem_loc <= AMP::Utilities::MemoryType::host ) {
-        auto migrated =
-            csrData->template migrate<HypreConfig<alloc::host>>( csrData->getBackend() );
-        std::tie( rs_d, cols_d, cols_loc_d, coeffs_d ) = migrated->getDiagMatrix()->getDataFields();
-        std::tie( rs_od, cols_od, cols_loc_od, coeffs_od ) =
-            migrated->getOffdMatrix()->getDataFields();
-        d_csrdata_migrated = migrated;
-    } else {
-#ifdef AMP_USE_DEVICE
-        if ( hypre_mem_loc == AMP::Utilities::MemoryType::managed ) {
-            auto migrated =
-                csrData->template migrate<HypreConfig<alloc::managed>>( csrData->getBackend() );
-            std::tie( rs_d, cols_d, cols_loc_d, coeffs_d ) =
-                migrated->getDiagMatrix()->getDataFields();
-            std::tie( rs_od, cols_od, cols_loc_od, coeffs_od ) =
-                migrated->getOffdMatrix()->getDataFields();
-            d_csrdata_migrated = migrated;
-        } else if ( hypre_mem_loc == AMP::Utilities::MemoryType::device ) {
-            auto migrated =
-                csrData->template migrate<HypreConfig<alloc::device>>( csrData->getBackend() );
-            std::tie( rs_d, cols_d, cols_loc_d, coeffs_d ) =
-                migrated->getDiagMatrix()->getDataFields();
-            std::tie( rs_od, cols_od, cols_loc_od, coeffs_od ) =
-                migrated->getOffdMatrix()->getDataFields();
-            d_csrdata_migrated = migrated;
-        } else {
-            AMP_ERROR( "HypreMatrixAdaptor::initializeHypreMatrix Unrecognized memory location" );
-        }
-#else
-        AMP_ERROR( "HypreMatrixAdaptor::initializeHypreMatrix Unrecognized memory location" );
-#endif
-    }
     AMP_INSIST( rs_d && cols_loc_d && coeffs_d, "diagonal block layout cannot be NULL" );
 
-    // above migration had better ensure that this holds
-    AMP_INSIST( AMP::Utilities::getMemoryType( rs_d ) == AMP::Utilities::getMemoryType( diag->i ),
-                "HypreMatrixAdaptor::initializeHypreMatrix: Hypre and native representations "
-                "must be in same memory space" );
-
     // Fill in the ->i fields of diag and off_diag
-    AMP::Utilities::copy( static_cast<size_t>( nrows + 1 ), rs_d, diag->i );
+    AMP::Utilities::Algorithms::copy_n(
+        diag->i, rs_d, nrows + 1, csr_mem_loc, csrData->d_acceleration_context.getStream() );
     if ( haveOffd ) {
-        AMP::Utilities::copy( static_cast<size_t>( nrows + 1 ), rs_od, off_diag->i );
+        AMP::Utilities::Algorithms::copy_n( off_diag->i,
+                                            rs_od,
+                                            nrows + 1,
+                                            csr_mem_loc,
+                                            csrData->d_acceleration_context.getStream() );
     } else {
-        AMP::Utilities::Algorithms<HYPRE_Int>::fill_n(
-            off_diag->i, static_cast<size_t>( nrows + 1 ), 0 );
+        AMP::Utilities::Algorithms::zero_n(
+            off_diag->i, nrows + 1, csr_mem_loc, csrData->d_acceleration_context.getStream() );
+    }
+    if constexpr ( csr_data_t::device_accessible ) {
+        csrData->d_acceleration_context.synchronizeStream();
     }
 
     // This is where we tell hypre to stop owning any data
@@ -238,22 +238,33 @@ void HypreMatrixAdaptor::initializeHypreMatrix( std::shared_ptr<CSRMatrixData<Co
         // always allocate and set host side offd map
         par_matrix->col_map_offd =
             hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_HOST );
-        AMP::Utilities::copy(
-            static_cast<size_t>( off_diag->num_cols ), colMap, par_matrix->col_map_offd );
+        AMP::Utilities::Algorithms::copyCast( par_matrix->col_map_offd,
+                                              AMP::Utilities::MemoryType::host,
+                                              colMap,
+                                              csr_mem_loc,
+                                              off_diag->num_cols,
+                                              csrData->d_acceleration_context.getStream() );
 
         // and do device map if needed
         if ( memory_location == HYPRE_MEMORY_DEVICE ) {
             par_matrix->device_col_map_offd =
                 hypre_TAlloc( HYPRE_BigInt, off_diag->num_cols, HYPRE_MEMORY_DEVICE );
-            AMP::Utilities::copy( static_cast<size_t>( off_diag->num_cols ),
-                                  colMap,
-                                  par_matrix->device_col_map_offd );
+            AMP::Utilities::Algorithms::copyCast( par_matrix->device_col_map_offd,
+                                                  csr_mem_loc,
+                                                  colMap,
+                                                  csr_mem_loc,
+                                                  off_diag->num_cols,
+                                                  csrData->d_acceleration_context.getStream() );
         }
     }
 
     // Update ->rownnz fields, note that we don't own these
     hypre_CSRMatrixSetRownnz( diag );
     hypre_CSRMatrixSetRownnz( off_diag );
+
+    if constexpr ( csr_data_t::device_accessible ) {
+        csrData->d_acceleration_context.synchronizeStream();
+    }
 
     // set assemble flag to indicate that we are done
     d_matrix->assemble_flag = 1;

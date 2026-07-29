@@ -72,11 +72,16 @@ public:
     size_t numberOfDataBlocks() const override;
     size_t sizeOfDataBlock( size_t i ) const override;
 
-    void addValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void setValuesByLocalID( size_t, const size_t *, const void *, const typeID & ) override;
-    void getValuesByLocalID( size_t, const size_t *, void *, const typeID & ) const override;
-    void putRawData( const void *in, const typeID &id ) override;
-    void getRawData( void *out, const typeID &id ) const override;
+    void addValuesByLocalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void setValuesByLocalID(
+        size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType ) override;
+    void getValuesByLocalID(
+        size_t, const size_t *, void *, const typeID &, AMP::Utilities::MemoryType ) const override;
+    void
+    putRawData( const void *in, const typeID &id, AMP::Utilities::MemoryType buf_loc ) override;
+    void
+    getRawData( void *out, const typeID &id, AMP::Utilities::MemoryType buf_loc ) const override;
     typeID getType( size_t ) const override { return d_typeID; }
     uint64_t getDataID() const override { return d_ViewVector->getDataID(); }
     size_t sizeofDataBlockType( size_t ) const override { return sizeof( double ); }

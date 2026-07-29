@@ -15,6 +15,7 @@ template<typename Config>
 void RawCSRMatrixParameters<Config>::writeRestart( int64_t fid ) const
 {
     MatrixParametersBase::writeRestart( fid );
+    IO::writeHDF5( fid, "mode", static_cast<std::uint16_t>( Config::mode ) );
     IO::writeHDF5( fid, "first_row", d_first_row );
     IO::writeHDF5( fid, "last_row", d_last_row );
     IO::writeHDF5( fid, "first_col", d_first_col );

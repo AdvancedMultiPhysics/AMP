@@ -7,6 +7,7 @@ ADD_AMP_TEST_1_2_4( testMultiVector GPU NO_RESOURCES )
 ADD_AMP_TEST( test_VectorCopyCast )
 ADD_AMP_TEST( test_VectorPerformance GPU )
 ADD_AMP_TEST( test_Scalar )
+ADD_AMP_TEST_1_2_4( test_VectorRedistribute )
 
 IF ( USE_DEVICE )
   SET_DEVICE_COMPILER( test_VectorPerformance.cpp )

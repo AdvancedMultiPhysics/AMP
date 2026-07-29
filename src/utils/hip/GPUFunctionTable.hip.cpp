@@ -238,7 +238,7 @@ void transformReLUW( const TYPE *d_a, TYPE *d_b, size_t n )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( n, BlockDim, GridDim );
+    setKernelDims( n, transformReLUKernel<TYPE>, BlockDim, GridDim );
     transformReLUKernel<TYPE><<<GridDim, BlockDim>>>( d_a, d_b, n );
     checkHipErrors( hipDeviceSynchronize() );
 }
@@ -248,7 +248,7 @@ void transformAbsW( const TYPE *d_a, TYPE *d_b, size_t n )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( n, BlockDim, GridDim );
+    setKernelDims( n, transformAbsKernel<TYPE>, BlockDim, GridDim );
     transformAbsKernel<TYPE><<<GridDim, BlockDim>>>( d_a, d_b, n );
     checkHipErrors( hipDeviceSynchronize() );
 }
@@ -258,7 +258,7 @@ void transformTanhW( const TYPE *d_a, TYPE *d_b, size_t n )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( n, BlockDim, GridDim );
+    setKernelDims( n, transformTanhKernel<TYPE>, BlockDim, GridDim );
     transformTanhKernel<TYPE><<<GridDim, BlockDim>>>( d_a, d_b, n );
     checkHipErrors( hipDeviceSynchronize() );
 }
@@ -268,7 +268,7 @@ void transformHardTanhW( const TYPE *d_a, TYPE *d_b, size_t n )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( n, BlockDim, GridDim );
+    setKernelDims( n, transformHardTanhKernel<TYPE>, BlockDim, GridDim );
     transformHardTanhKernel<TYPE><<<GridDim, BlockDim>>>( d_a, d_b, n );
     checkHipErrors( hipDeviceSynchronize() );
 }
@@ -278,7 +278,7 @@ void transformSigmoidW( const TYPE *d_a, TYPE *d_b, size_t n )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( n, BlockDim, GridDim );
+    setKernelDims( n, transformSigmoidKernel<TYPE>, BlockDim, GridDim );
     transformSigmoidKernel<TYPE><<<GridDim, BlockDim>>>( d_a, d_b, n );
     checkHipErrors( hipDeviceSynchronize() );
 }
@@ -288,7 +288,7 @@ void transformSoftPlusW( const TYPE *d_a, TYPE *d_b, size_t n )
 {
     dim3 BlockDim;
     dim3 GridDim;
-    setKernelDims( n, BlockDim, GridDim );
+    setKernelDims( n, transformSoftPlusKernel<TYPE>, BlockDim, GridDim );
     transformSoftPlusKernel<TYPE><<<GridDim, BlockDim>>>( d_a, d_b, n );
     checkHipErrors( hipDeviceSynchronize() );
 }

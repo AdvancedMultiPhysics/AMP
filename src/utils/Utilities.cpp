@@ -42,28 +42,6 @@
     #include "AMP/utils/hip/Helper_Hip.h"
 #endif
 
-// Include system dependent headers
-// clang-format off
-#if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 ) || defined( _MSC_VER )
-    #include <process.h>
-    #include <stdio.h>
-    #include <tchar.h>
-    #include <windows.h>
-    #include <psapi.h>  // Must be after windows.h
-#else
-    #include <dlfcn.h>
-    #include <execinfo.h>
-    #include <sched.h>
-    #include <sys/time.h>
-    #include <unistd.h>
-#endif
-#if defined( __APPLE__ )
-    #include <mach/mach.h>
-    #include <sys/sysctl.h>
-    #include <sys/types.h>
-#endif
-// clang-format on
-
 
 namespace AMP::Utilities {
 
@@ -174,6 +152,12 @@ std::string strrep( const std::string &in, const std::string &s, const std::stri
     }
     return out;
 }
+#if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 )
+int strnicmp( const char *s1, const char *s2, size_t n ) { return _strnicmp( s1, s2, n ); }
+#else // Linux Includes
+    #include <strings.h>
+int strnicmp( const char *s1, const char *s2, size_t n ) { return strncasecmp( s1, s2, n ); }
+#endif
 
 
 /****************************************************************************
@@ -185,6 +169,10 @@ static_assert( getOS() != OS::Unknown );
 /****************************************************************************
  *  Function to set an environemental variable                               *
  ****************************************************************************/
+#if defined( WIN32 ) || defined( _WIN32 ) || defined( WIN64 ) || defined( _WIN64 ) || \
+    defined( _MSC_VER )
+    #include <windows.h>
+#endif
 void setenv( const char *name, const char *value )
 {
     Utilities_mutex.lock();
@@ -597,14 +585,14 @@ void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
     auto outer_db = input_db->getDatabase( outerOperatorName );
     AMP_INSIST( outer_db, "OperatorBuilder: outer DB is null" );
 
-    if ( outer_db->keyExists( "MemoryLocation" ) ) {
+    if ( outer_db->keyExists( "memory_location" ) ) {
         // if outer operator requests a memory location it takes precedent
-        auto memLoc = outer_db->getScalar<std::string>( "MemoryLocation" );
+        auto memLoc = outer_db->getScalar<std::string>( "memory_location" );
         for ( auto &innerName : nestedOperatorNames ) {
             auto inner_db = input_db->getDatabase( innerName );
             AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null" );
             inner_db->putScalar(
-                "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+                "memory_location", memLoc, Units(), Database::Check::WarnOverwrite );
         }
     } else {
         // outer db does not specify a memory location, check if any internal one does
@@ -639,20 +627,20 @@ void setNestedOperatorMemoryLocations( std::shared_ptr<AMP::Database> input_db,
         for ( auto &innerName : nestedOperatorNames ) {
             auto inner_db = input_db->getDatabase( innerName );
             AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null (" + innerName + ")" );
-            if ( inner_db->keyExists( "MemoryLocation" ) ) {
+            if ( inner_db->keyExists( "memory_location" ) ) {
                 found        = true;
-                auto memLocI = inner_db->getScalar<std::string>( "MemoryLocation" );
+                auto memLocI = inner_db->getScalar<std::string>( "memory_location" );
                 memLoc       = memRestrict( memLoc, memLocI );
             }
         }
         if ( found ) {
             outer_db->putScalar(
-                "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+                "memory_location", memLoc, Units(), Database::Check::WarnOverwrite );
             for ( auto &innerName : nestedOperatorNames ) {
                 auto inner_db = input_db->getDatabase( innerName );
                 AMP_INSIST( inner_db, "OperatorBuilder: inner DB is null" );
                 inner_db->putScalar(
-                    "MemoryLocation", memLoc, Units(), Database::Check::WarnOverwrite );
+                    "memory_location", memLoc, Units(), Database::Check::WarnOverwrite );
             }
         }
     }

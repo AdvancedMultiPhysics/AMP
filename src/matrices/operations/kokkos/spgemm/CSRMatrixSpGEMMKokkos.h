@@ -19,7 +19,7 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename Config, class ExecSpace, class ViewSpace>
+template<typename Config, class ExecSpace>
 class CSRMatrixSpGEMMKokkos : public CSRMatrixSpGEMMCommon<Config>
 {
 public:
@@ -29,6 +29,7 @@ public:
     using lidx_t            = typename Config::lidx_t;
     using gidx_t            = typename Config::gidx_t;
     using scalar_t          = typename Config::scalar_t;
+    using ViewSpace         = typename ExecSpace::memory_space;
 
     using handle_t = typename KokkosKernels::Experimental::
         KokkosKernelsHandle<lidx_t, lidx_t, scalar_t, ExecSpace, ViewSpace, ViewSpace>;

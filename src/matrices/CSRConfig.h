@@ -291,6 +291,9 @@ struct CSRConfig {
     using scalar_t       = typename scalar_info<scalar_id>::type;
     using allocator_type = typename alloc_info<Alloc>::type;
 
+    static constexpr AMP::Utilities::MemoryType mem_loc = alloc_info<Alloc>::mem_loc;
+    static constexpr bool device_accessible             = alloc_info<Alloc>::device_accessible;
+
     template<alloc new_alloc>
     struct set_alloc {
         using type = CSRConfig<new_alloc, LocalInd, GlobalInd, Scalar>;

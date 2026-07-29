@@ -28,13 +28,13 @@ Database::Database( std::string name )
 {
 }
 Database::Database( Database &&rhs )
+    : d_check( std::move( rhs.d_check ) ),
+      d_name( std::move( rhs.d_name ) ),
+      d_hash( std::move( rhs.d_hash ) ),
+      d_keys( std::move( rhs.d_keys ) ),
+      d_data( std::move( rhs.d_data ) ),
+      d_used( std::move( rhs.d_used ) )
 {
-    std::swap( d_check, rhs.d_check );
-    std::swap( d_name, rhs.d_name );
-    std::swap( d_used, rhs.d_used );
-    std::swap( d_hash, rhs.d_hash );
-    std::swap( d_keys, rhs.d_keys );
-    std::swap( d_data, rhs.d_data );
 }
 Database::Database( const Database &rhs ) : KeyData() { copy( rhs ); }
 Database &Database::operator=( const Database &rhs )

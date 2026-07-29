@@ -3,7 +3,6 @@
 
 #include "AMP/operators/Operator.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
-#include "AMP/utils/Backend.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/vectors/Vector.h"
 
@@ -224,7 +223,7 @@ public:
 
     bool getConverged( void ) const
     {
-        return d_ConvergenceStatus <= SolverStatus::ConvergedUserCondition ? 1 : 0;
+        return d_ConvergenceStatus <= SolverStatus::ConvergedUserCondition;
     }
 
     SolverStatus getConvergenceStatus( void ) const { return d_ConvergenceStatus; }
@@ -265,9 +264,6 @@ public:
 
     std::shared_ptr<AMP::LinearAlgebra::Vector> getSolutionScaling() { return d_pSolutionScaling; }
     std::shared_ptr<AMP::LinearAlgebra::Vector> getFunctionScaling() { return d_pFunctionScaling; }
-
-    AMP::Utilities::ExecutionSpace getExecutionSpace() const { return d_exec_space; }
-    void setExecutionSpace( AMP::Utilities::ExecutionSpace space ) { d_exec_space = space; }
 
 protected:
     void getBaseFromInput( std::shared_ptr<AMP::Database> db );
@@ -319,9 +315,6 @@ protected:
     std::shared_ptr<AMP::Solver::SolverStrategy> d_pNestedSolver = nullptr;
 
     std::shared_ptr<AMP::IO::Writer> d_writer = nullptr;
-
-    //! execution space for the solver
-    AMP::Utilities::ExecutionSpace d_exec_space = AMP::Utilities::ExecutionSpace::unspecified;
 
     //! memory storage address space
     AMP::Utilities::MemoryType d_memory_location = AMP::Utilities::MemoryType::none;

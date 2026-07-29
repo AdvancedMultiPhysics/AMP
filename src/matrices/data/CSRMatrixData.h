@@ -5,6 +5,8 @@
 #include "AMP/matrices/RawCSRMatrixParameters.h"
 #include "AMP/matrices/data/CSRLocalMatrixData.h"
 #include "AMP/matrices/data/MatrixData.h"
+#include "AMP/utils/AccelerationContext.h"
+#include "AMP/utils/GroupedRedistributionPlan.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/Utilities.h"
 
@@ -47,8 +49,9 @@ public:
         typename std::allocator_traits<allocator_type>::template rebind_alloc<lidx_t>;
     using scalarAllocator_t =
         typename std::allocator_traits<allocator_type>::template rebind_alloc<scalar_t>;
-    using localmatrixdata_t = CSRLocalMatrixData<Config>;
-    using mask_t            = typename localmatrixdata_t::mask_t;
+    using localmatrixdata_t                 = CSRLocalMatrixData<Config>;
+    using mask_t                            = typename localmatrixdata_t::mask_t;
+    static constexpr bool device_accessible = Config::device_accessible;
 
     /** \brief  Constructor
      * \param[in] params  Description of the matrix
@@ -69,10 +72,26 @@ public:
 
     //! Migrate data to different configuration, mostly for moving memory spaces
     template<typename ConfigOut>
-    std::shared_ptr<CSRMatrixData<ConfigOut>> migrate( AMP::Utilities::Backend backend ) const;
+    std::shared_ptr<CSRMatrixData<ConfigOut>> migrate() const;
+
+    //! Copy coefficients from another CSRMatrixData and cast them if needed
+    template<typename ConfigIn>
+    void copyFrom( std::shared_ptr<const CSRMatrixData<ConfigIn>> in );
 
     //! Transpose
     std::shared_ptr<MatrixData> transpose() const override;
+
+    /** \brief Redistribute a square CSR matrix onto the roots of `new_nprocs` contiguous rank
+     *         groups of the current communicator using contiguous row blocks.
+     * \details Inactive ranks return `nullptr`.
+     */
+    std::shared_ptr<CSRMatrixData<Config>> redistribute( int new_nprocs ) const;
+
+    /** \brief Redistribute a square CSR matrix with a precomputed grouped redistribution plan.
+     * \details Inactive ranks return `nullptr`.
+     */
+    std::shared_ptr<CSRMatrixData<Config>>
+    redistribute( const AMP::Utilities::GroupedRedistributionPlan &plan ) const;
 
     //! Return the type of the matrix
     std::string type() const override { return "CSRMatrixData"; }
@@ -246,7 +265,10 @@ public:
     bool hasOffDiag() const { return !d_offd_matrix->d_is_empty; }
 
     //! Get the memory space where data is stored
-    auto getMemoryLocation() const { return d_memory_location; }
+    virtual AMP::Utilities::MemoryType getMemoryLocation() const override
+    {
+        return Config::mem_loc;
+    }
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] tot_nnz_diag   Number of nonzeros in whole diagonal block
@@ -257,8 +279,11 @@ public:
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] nnz_diag   Number of nonzeros in each row of diagonal block
      * \param[in] nnz_offd   Number of nonzeros in each row of off-diagonal block
+     * \param[in] mem_loc    Memory space of input buffers
      */
-    void setNNZ( const lidx_t *nnz_diag, const lidx_t *nnz_offd );
+    void setNNZ( const lidx_t *nnz_diag,
+                 const lidx_t *nnz_offd,
+                 const AMP::Utilities::MemoryType mem_loc );
 
     /** \brief  Set the number of nonzeros in each block and allocate space internally
      * \param[in] do_accum  Flag for whether entries in row pointers need to be accumulated
@@ -294,7 +319,7 @@ public:
     void printStats( bool verbose, bool show_zeros ) const
     {
         std::cout << "CSRMatrixData stats:" << std::endl;
-        std::cout << "  Memory location: " << AMP::Utilities::getString( d_memory_location )
+        std::cout << "  Memory location: " << AMP::Utilities::getString( Config::mem_loc )
                   << std::endl;
         std::cout << "  Global size: (" << numGlobalRows() << " x " << numGlobalColumns() << ")"
                   << std::endl;
@@ -360,8 +385,10 @@ protected:
                              std::map<gidx_t, std::map<gidx_t, scalar_t>> &data );
 
 public:
-    //! Memory location, set by examining type of Allocator
-    AMP::Utilities::MemoryType d_memory_location;
+    //! Memory location alias
+    static constexpr AMP::Utilities::MemoryType d_memory_location = Config::mem_loc;
+
+    AMP::Utilities::AccelerationContext &d_acceleration_context;
 
 protected:
     //! Matrix is square if true

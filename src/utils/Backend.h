@@ -10,14 +10,7 @@
 
 namespace AMP::Utilities {
 
-// specifies where code should be executed
-enum class ExecutionSpace : int8_t { unspecified, cpu, device };
-
-ExecutionSpace getDefaultExecutionSpace( const MemoryType memory_location );
-std::string_view getString( const ExecutionSpace exec_space );
-ExecutionSpace executionSpaceFromString( const std::string_view name );
-
-//! Enum to store the backend used for gpu acceleration
+//! Enum to store the backend used for execution
 enum class Backend : int8_t {
     Serial   = 0,
     Hip_Cuda = 1,
@@ -28,10 +21,10 @@ enum class Backend : int8_t {
     RAJA     = 6
 };
 
-
 Backend getDefaultBackend( const MemoryType memory_location );
 std::string_view getString( const Backend backend );
 Backend backendFromString( const std::string_view name );
+bool backendMemoryTypeCompatible( const Backend backend, const MemoryType memory_location );
 
 } // namespace AMP::Utilities
 

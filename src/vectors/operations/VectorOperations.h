@@ -50,7 +50,7 @@ public:
      * \param[in] x         a vector
      * \param[out] z        a vector
      */
-    virtual void copyCast( const VectorData &x, VectorData &z ) = 0;
+    virtual void copyCast( const VectorData &x, VectorData &z );
 
     /**
      *\brief Set vector entries (including ghosts) to zero

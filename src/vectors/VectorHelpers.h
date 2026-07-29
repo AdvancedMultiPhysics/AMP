@@ -1,10 +1,26 @@
 #ifndef included_AMP_VectorHelpers
 #define included_AMP_VectorHelpers
 
+#include "AMP/utils/GroupedRedistributionPlan.h"
 #include "AMP/vectors/Vector.h"
 
 
 namespace AMP::LinearAlgebra::VectorHelpers {
+
+using GroupedRedistributionContext = AMP::Utilities::GroupedRedistributionPlan;
+
+std::shared_ptr<Vector> redistribute( std::shared_ptr<const Vector> vec, int new_nprocs );
+
+std::shared_ptr<Vector> redistribute( std::shared_ptr<const Vector> vec,
+                                      const GroupedRedistributionContext &context );
+
+void redistribute( const GroupedRedistributionContext &context,
+                   std::shared_ptr<const Vector> src,
+                   std::shared_ptr<Vector> dst );
+
+void scatterRedistributed( const GroupedRedistributionContext &context,
+                           std::shared_ptr<const Vector> src,
+                           std::shared_ptr<Vector> dst );
 
 
 //! Perform multiple L1 norms on vector subsets

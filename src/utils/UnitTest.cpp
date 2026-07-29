@@ -74,6 +74,17 @@ void UnitTest::pass_fail( bool pass, std::string in )
     else
         failure( std::move( in ) );
 }
+void UnitTest::copy( const UnitTest &ut, const std::string &prefix )
+{
+    d_mutex.lock();
+    for ( auto &msg : ut.d_pass )
+        d_pass.emplace_back( prefix + msg );
+    for ( auto &msg : ut.d_fail )
+        d_fail.emplace_back( prefix + msg );
+    for ( auto &msg : ut.d_expected )
+        d_expected.emplace_back( prefix + msg );
+    d_mutex.unlock();
+}
 
 
 /********************************************************************

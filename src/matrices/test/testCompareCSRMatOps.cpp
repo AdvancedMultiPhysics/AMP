@@ -36,7 +36,7 @@ template<typename Config>
 void createMatrixAndVectors( AMP::UnitTest *ut,
                              AMP::Utilities::Backend backend,
                              std::shared_ptr<AMP::Discretization::DOFManager> &dofManager,
-                             std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> &matrix,
+                             std::shared_ptr<AMP::LinearAlgebra::Matrix> &matrix,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &x,
                              std::shared_ptr<AMP::LinearAlgebra::Vector> &y )
 {
@@ -44,39 +44,8 @@ void createMatrixAndVectors( AMP::UnitTest *ut,
     // Create the vectors
     auto inVar  = std::make_shared<AMP::LinearAlgebra::Variable>( "inputVar" );
     auto outVar = std::make_shared<AMP::LinearAlgebra::Variable>( "outputVar" );
-
-    // using  AMP::ManagedAllocator<void>;
-    auto inVec = AMP::LinearAlgebra::createVector(
-        dofManager, inVar, true, AMP::Utilities::MemoryType::managed );
-    auto outVec = AMP::LinearAlgebra::createVector(
-        dofManager, outVar, true, AMP::Utilities::MemoryType::managed );
-
-    // Create the matrix
-
-    ///// Temporary before updating create matrix
-    // Get the DOFs
-    auto leftDOF  = inVec->getDOFManager();
-    auto rightDOF = outVec->getDOFManager();
-
-    const auto _leftDOF  = leftDOF.get();
-    const auto _rightDOF = rightDOF.get();
-    std::function<std::vector<size_t>( size_t )> getRow;
-    getRow = [_leftDOF, _rightDOF]( size_t row ) {
-        auto id = _leftDOF->getElementID( row );
-        return _rightDOF->getRowDOFs( id );
-    };
-
-    // Create the matrix parameters
-    auto params = std::make_shared<AMP::LinearAlgebra::MatrixParameters>(
-        leftDOF, rightDOF, comm, inVar, outVar, backend, getRow );
-
-    // Create the matrix
-    auto data = std::make_shared<AMP::LinearAlgebra::CSRMatrixData<Config>>( params );
-    matrix    = std::make_shared<AMP::LinearAlgebra::CSRMatrix<Config>>( data );
-    // Initialize the matrix
-    matrix->zero();
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-    ///// END: Temporary before updating create matrix
+    matrix =
+        pseudoLaplacianFromDOFs( "CSRMatrix", dofManager, backend, Config::mem_loc, inVar, outVar );
 
     if ( matrix ) {
         ut->passes( " Able to create a square matrix" );
@@ -94,14 +63,11 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
 {
     using scalar_t = typename Config::scalar_t;
 
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> dev_mat = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> dev_x              = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> dev_y              = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> dev_mat = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> dev_x   = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> dev_y   = nullptr;
     createMatrixAndVectors<Config>(
         ut, AMP::Utilities::Backend::Hip_Cuda, dofManager, dev_mat, dev_x, dev_y );
-
-    fillWithPseudoLaplacian( dev_mat );
-    dev_mat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     dev_x->setRandomValues();
     // this shouldn't be necessary, but evidently is!
@@ -110,14 +76,11 @@ void testMatvecWithDOFs( AMP::UnitTest *ut,
 
     dev_mat->mult( dev_x, dev_y );
 
-    std::shared_ptr<AMP::LinearAlgebra::CSRMatrix<Config>> kks_mat = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> kks_x              = nullptr;
-    std::shared_ptr<AMP::LinearAlgebra::Vector> kks_y              = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Matrix> kks_mat = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> kks_x   = nullptr;
+    std::shared_ptr<AMP::LinearAlgebra::Vector> kks_y   = nullptr;
     createMatrixAndVectors<Config>(
         ut, AMP::Utilities::Backend::Kokkos, dofManager, kks_mat, kks_x, kks_y );
-
-    fillWithPseudoLaplacian( kks_mat );
-    kks_mat->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     kks_x->copyVector( dev_x );
     kks_x->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_SET );

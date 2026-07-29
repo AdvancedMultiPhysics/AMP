@@ -38,6 +38,11 @@ db2 {
    db = db1
 }
 
+db3 : db1 {
+    string = "db3"
+    int = global_int
+}
+
 RepRate = 1000 Hz
 N_repeat = 4
 DutyCycle = 0.25

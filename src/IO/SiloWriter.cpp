@@ -18,7 +18,7 @@ namespace AMP::IO {
 /************************************************************
  * Constructor/Destructor                                    *
  ************************************************************/
-SiloIO::SiloIO() : AMP::IO::Writer()
+SiloIO::SiloIO( const WriterParameters &properties ) : AMP::IO::Writer( properties )
 {
     d_dim = -1;
 #ifdef AMP_USE_SILO
@@ -45,7 +45,8 @@ Writer::WriterProperties SiloIO::getProperties() const
 #else
     properties.enabled = false;
 #endif
-    properties.isNull = false;
+    properties.isNull        = false;
+    properties.decomposition = d_decomposition;
     return properties;
 }
 

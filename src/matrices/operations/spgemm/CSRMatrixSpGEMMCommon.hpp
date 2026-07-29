@@ -1,13 +1,12 @@
 #include "AMP/IO/PIO.h"
 #include "AMP/matrices/CSRConfig.h"
 #include "AMP/matrices/operations/spgemm/CSRMatrixSpGEMMCommon.h"
+#include "AMP/utils/AMPManager.h"
 #include "AMP/utils/Memory.h"
 #include "AMP/utils/UtilityMacros.h"
+#include "AMP/utils/device/Device.h"
 
 #ifdef AMP_USE_DEVICE
-    #include <thrust/device_vector.h>
-    #include <thrust/execution_policy.h>
-    #include <thrust/transform.h>
     #define AMP_FUNCTION_HD __host__ __device__
 #else
     #define AMP_FUNCTION_HD
@@ -23,24 +22,12 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
     PROFILE( "CSRMatrixSpGEMMCommon::multiply" );
 
     // start communication to build BRemote before doing anything
-    if ( A->hasOffDiag() ) {
-        startBRemoteComm();
-    }
+    startBRemoteComm();
 
-    C_diag_diag = std::make_shared<localmatrixdata_t>( nullptr,
-                                                       C->getMemoryLocation(),
-                                                       C->beginRow(),
-                                                       C->endRow(),
-                                                       C->beginCol(),
-                                                       C->endCol(),
-                                                       true );
-    C_diag_offd = std::make_shared<localmatrixdata_t>( nullptr,
-                                                       C->getMemoryLocation(),
-                                                       C->beginRow(),
-                                                       C->endRow(),
-                                                       C->beginCol(),
-                                                       C->endCol(),
-                                                       false );
+    C_diag_diag = std::make_shared<localmatrixdata_t>(
+        nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), true );
+    C_diag_offd = std::make_shared<localmatrixdata_t>(
+        nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), false );
 
     {
         PROFILE( "CSRMatrixSpGEMMCommon::multiply (local)" );
@@ -48,17 +35,14 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
         multiplyLocal( A_diag, B_offd, C_diag_offd );
     }
 
+    // finalize communication before using BRemote
+    endBRemoteComm();
+
     if ( A->hasOffDiag() ) {
-        endBRemoteComm();
         PROFILE( "CSRMatrixSpGEMMCommon::multiply (remote)" );
         if ( BR_diag.get() != nullptr ) {
-            C_offd_diag = std::make_shared<localmatrixdata_t>( nullptr,
-                                                               C->getMemoryLocation(),
-                                                               C->beginRow(),
-                                                               C->endRow(),
-                                                               C->beginCol(),
-                                                               C->endCol(),
-                                                               true );
+            C_offd_diag = std::make_shared<localmatrixdata_t>(
+                nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), true );
             multiplyLocal( A_offd, BR_diag, C_offd_diag );
             merge( C_diag_diag, C_offd_diag, C_diag );
             C_diag_diag.reset();
@@ -67,13 +51,8 @@ void CSRMatrixSpGEMMCommon<Config>::multiply()
             C_diag->swapDataFields( *C_diag_diag );
         }
         if ( BR_offd.get() != nullptr ) {
-            C_offd_offd = std::make_shared<localmatrixdata_t>( nullptr,
-                                                               C->getMemoryLocation(),
-                                                               C->beginRow(),
-                                                               C->endRow(),
-                                                               C->beginCol(),
-                                                               C->endCol(),
-                                                               false );
+            C_offd_offd = std::make_shared<localmatrixdata_t>(
+                nullptr, C->beginRow(), C->endRow(), C->beginCol(), C->endCol(), false );
             multiplyLocal( A_offd, BR_offd, C_offd_offd );
             merge( C_diag_offd, C_offd_offd, C_offd );
             C_diag_offd.reset();
@@ -174,7 +153,6 @@ AMP_FUNCTION_HD void merge_row_count( const lidx_t row,
 {
     const auto A_start = A_rs[row], A_end = A_rs[row + 1];
     const auto B_start = B_rs[row], B_end = B_rs[row + 1];
-    const auto C_start = C_rs[row];
 
     // Count only actual non-zeros from A
     for ( lidx_t A_cur = A_start; A_cur < A_end; ++A_cur ) {
@@ -310,7 +288,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( d_stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_count_all );
@@ -357,7 +335,7 @@ void CSRMatrixSpGEMMCommon<Config>::merge( std::shared_ptr<localmatrixdata_t> in
             }
         } else {
 #ifdef AMP_USE_DEVICE
-            thrust::for_each( thrust::device,
+            thrust::for_each( thrust::device.on( d_stream ),
                               thrust::make_counting_iterator( 0 ),
                               thrust::make_counting_iterator( num_rows ),
                               merge_row_fill_all );

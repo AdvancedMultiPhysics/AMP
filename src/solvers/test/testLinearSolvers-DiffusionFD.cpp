@@ -125,8 +125,8 @@ void driver( AMP::AMP_MPI comm,
 
         // Create operator to wrap matrix
         auto op_db = std::make_shared<AMP::Database>( "LinearOperator" );
-        op_db->putScalar<std::string>( "AccelerationBackend", accelerationBackend );
-        op_db->putScalar<std::string>( "MemoryLocation", memoryLocation );
+        op_db->putScalar<std::string>( "acceleration_backend", accelerationBackend );
+        op_db->putScalar<std::string>( "memory_location", memoryLocation );
 
         auto opParams       = std::make_shared<AMP::Operator::OperatorParameters>( op_db );
         myPoissonOp         = std::make_shared<AMP::Operator::LinearOperator>( opParams );
@@ -201,6 +201,7 @@ void driver( AMP::AMP_MPI comm,
 int main( int argc, char **argv )
 {
     AMP::AMPManager::startup( argc, argv );
+    AMP::pout << "in main" << std::endl;
     AMP::UnitTest ut;
 
     PROFILE_ENABLE();

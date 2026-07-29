@@ -1,9 +1,6 @@
 #ifndef included_AMP_SASolver_H_
 #define included_AMP_SASolver_H_
 
-#include "AMP/matrices/CSRMatrix.h"
-#include "AMP/matrices/data/CSRLocalMatrixData.h"
-#include "AMP/matrices/data/CSRMatrixData.h"
 #include "AMP/solvers/SolverFactory.h"
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"

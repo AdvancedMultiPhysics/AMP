@@ -56,6 +56,15 @@ public:
     //! Replace current backend with different one, no-op if same, no-op if not a CSRMatrix
     virtual void setBackend( AMP::Utilities::Backend );
 
+    //! Get backend associated with matrix operations
+    virtual AMP::Utilities::Backend getBackend() const { return AMP::Utilities::Backend::Serial; }
+
+    //! Get memory location of matrix data
+    AMP::Utilities::MemoryType getMemoryLocation() const
+    {
+        return d_matrixData->getMemoryLocation();
+    }
+
     /** \brief  Matrix-vector multiplication
      * \param[in]  in  The vector to multiply
      * \param[out] out The resulting vectory
@@ -160,7 +169,7 @@ public:
     /** \brief  Set <i>this</i> matrix with the same non-zero and distributed structure
      * as x and copy the coefficients after up/down casting
      */
-    void copyCast( std::shared_ptr<const Matrix> X );
+    virtual void copyCast( std::shared_ptr<const Matrix> X );
 
     /** \brief  Extract the diagonal from a matrix
      * \param[in]  buf  An optional vector to use as a buffer

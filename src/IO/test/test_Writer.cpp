@@ -123,9 +123,11 @@ void testWriterVector( AMP::UnitTest &ut, const std::string &writerName )
     PROFILE2( "testWriterVector-" + writerName );
 
     // Create the writer and get it's properties
-    AMP::AMP_MPI comm( AMP_COMM_WORLD );
-    auto writer     = AMP::IO::Writer::buildWriter( writerName, comm );
-    auto properties = writer->getProperties();
+    AMP::IO::Writer::WriterParameters params;
+    params.decomposition = AMP::IO::Writer::DecompositionType::SINGLE;
+    auto writer          = AMP::IO::Writer::buildWriter( writerName, params );
+    auto comm            = writer->getComm();
+    auto properties      = writer->getProperties();
     if ( !properties.registerVector ) {
         ut.expected_failure( writerName + " does not support registering an independent vector" );
         return;
@@ -149,7 +151,6 @@ void testWriterVector( AMP::UnitTest &ut, const std::string &writerName )
     // Write the file
     auto rankStr         = std::to_string( comm.getRank() + 1 );
     std::string filename = "output_test_Writer/vector-" + writerName;
-    writer->setDecomposition( 1 );
     writer->writeFile( filename, 0, 0.0 );
     if ( AMP::IO::exists( filename + "_0." + properties.extension ) || properties.isNull )
         ut.passes( writerName + " registered independent vector" );
@@ -168,9 +169,11 @@ void testWriterMatrix( AMP::UnitTest &ut, const std::string &writerName )
     PROFILE2( "testWriterMatrix-" + writerName );
 
     // Create the writer and get it's properties
-    AMP::AMP_MPI comm( AMP_COMM_WORLD );
-    auto writer     = AMP::IO::Writer::buildWriter( writerName, comm );
-    auto properties = writer->getProperties(); // Function to build a vector using a mesh
+    AMP::IO::Writer::WriterParameters params;
+    params.decomposition = AMP::IO::Writer::DecompositionType::SINGLE;
+    auto writer          = AMP::IO::Writer::buildWriter( writerName, params );
+    auto comm            = writer->getComm();
+    auto properties      = writer->getProperties();
     if ( !properties.registerMatrix ) {
         ut.expected_failure( writerName + " does not support registering a matrix" );
         return;
@@ -193,7 +196,6 @@ void testWriterMatrix( AMP::UnitTest &ut, const std::string &writerName )
 
     // Write the file
     std::string filename = "output_test_Writer/matrix-" + writerName + "-" + rankStr + "proc";
-    writer->setDecomposition( 1 );
     writer->writeFile( filename, 0, 0.0 );
     if ( AMP::IO::exists( filename + "_0." + properties.extension ) || properties.isNull )
         ut.passes( writerName + " registered matrix" );
@@ -214,9 +216,13 @@ void testWriterMesh( AMP::UnitTest &ut,
     PROFILE2( "testWriterMesh-" + writerName );
 
     // Create the writer and get it's properties
-    auto writer      = AMP::IO::Writer::buildWriter( writerName, AMP_COMM_WORLD );
-    auto properties  = writer->getProperties();
-    using VectorType = AMP::IO::Writer::VectorType;
+    AMP::IO::Writer::WriterParameters params1, params2;
+    params1.decomposition = AMP::IO::Writer::DecompositionType::SINGLE;
+    params2.decomposition = AMP::IO::Writer::DecompositionType::MULTIPLE;
+    auto writer1          = AMP::IO::Writer::buildWriter( writerName, params1 );
+    auto writer2          = AMP::IO::Writer::buildWriter( writerName, params2 );
+    auto properties       = writer1->getProperties();
+    using VectorType      = AMP::IO::Writer::VectorType;
 
     // Check that we have valid work to do
     if ( !properties.registerMesh ) {
@@ -273,17 +279,27 @@ void testWriterMesh( AMP::UnitTest &ut,
 
     // Register the data
     int level = 1; // How much detail do we want to register
-    writer->registerMesh( mesh, level );
-    if ( surface )
-        writer->registerMesh( surface, level );
+    writer1->registerMesh( mesh, level );
+    writer2->registerMesh( mesh, level );
+    if ( surface ) {
+        writer1->registerMesh( surface, level );
+        writer2->registerMesh( surface, level );
+    }
     if ( properties.registerVectorWithMesh ) {
-        writer->registerVector( meshID_vec, mesh, pointType, "MeshID", VectorType::INT );
-        writer->registerVector( block_vec, mesh, volumeType, "BlockID", VectorType::INT, true );
-        writer->registerVector( rank_vec, mesh, pointType, "rank", VectorType::INT, true );
-        writer->registerVector( position, mesh, pointType, "position", VectorType::DOUBLE );
-        writer->registerVector( gauss_pt, mesh, volumeType, "gauss_pnt", VectorType::SINGLE );
-        if ( surface )
-            writer->registerVector( x_surface, surface, pointType, "x_surface" );
+        writer1->registerVector( meshID_vec, mesh, pointType, "MeshID", VectorType::INT );
+        writer2->registerVector( meshID_vec, mesh, pointType, "MeshID", VectorType::INT );
+        writer1->registerVector( block_vec, mesh, volumeType, "BlockID", VectorType::INT, true );
+        writer2->registerVector( block_vec, mesh, volumeType, "BlockID", VectorType::INT, true );
+        writer1->registerVector( rank_vec, mesh, pointType, "rank", VectorType::INT, true );
+        writer2->registerVector( rank_vec, mesh, pointType, "rank", VectorType::INT, true );
+        writer1->registerVector( position, mesh, pointType, "position", VectorType::DOUBLE );
+        writer2->registerVector( position, mesh, pointType, "position", VectorType::DOUBLE );
+        writer1->registerVector( gauss_pt, mesh, volumeType, "gauss_pnt", VectorType::SINGLE );
+        writer2->registerVector( gauss_pt, mesh, volumeType, "gauss_pnt", VectorType::SINGLE );
+        if ( surface ) {
+            writer1->registerVector( x_surface, surface, pointType, "x_surface" );
+            writer2->registerVector( x_surface, surface, pointType, "x_surface" );
+        }
     }
     globalComm.barrier();
     double t3 = AMP::AMP_MPI::time();
@@ -297,9 +313,12 @@ void testWriterMesh( AMP::UnitTest &ut,
             AMP::LinearAlgebra::VS_Mesh meshSelector( mesh2 );
             auto meshID_vec2 = meshID_vec->select( meshSelector );
             meshID_vec2->setToScalar( i + 1 );
-            writer->registerMesh( mesh2, level );
-            if ( properties.registerVectorWithMesh )
-                writer->registerVector( volume, mesh2, mesh2->getGeomType(), "volume" );
+            writer1->registerMesh( mesh2, level );
+            writer2->registerMesh( mesh2, level );
+            if ( properties.registerVectorWithMesh ) {
+                writer1->registerVector( volume, mesh2, mesh2->getGeomType(), "volume" );
+                writer2->registerVector( volume, mesh2, mesh2->getGeomType(), "volume" );
+            }
             // Get the surface
             std::shared_ptr<AMP::Mesh::Mesh> surfaceMesh;
             if ( surface )
@@ -309,9 +328,12 @@ void testWriterMesh( AMP::UnitTest &ut,
                 auto DOF_surface = AMP::Discretization::simpleDOFManager::create(
                     surfaceMesh, surfaceType, 0, 1, true );
                 auto id_vec = AMP::LinearAlgebra::createVector( DOF_surface, id_var, true );
-                if ( properties.registerVectorWithMesh )
-                    writer->registerVector(
+                if ( properties.registerVectorWithMesh ) {
+                    writer1->registerVector(
                         id_vec, surfaceMesh, surfaceType, "surface_ids", VectorType::INT );
+                    writer2->registerVector(
+                        id_vec, surfaceMesh, surfaceType, "surface_ids", VectorType::INT );
+                }
                 id_vec->setToScalar( -1 );
                 std::vector<size_t> dofs;
                 for ( auto &id : surfaceMesh->getBoundaryIDs() ) {
@@ -328,9 +350,12 @@ void testWriterMesh( AMP::UnitTest &ut,
                 try {
                     auto norm_vec =
                         AMP::LinearAlgebra::createVector( DOF_surfaceVec, norm_var, true );
-                    if ( properties.registerVectorWithMesh )
-                        writer->registerVector(
+                    if ( properties.registerVectorWithMesh ) {
+                        writer1->registerVector(
                             norm_vec, surfaceMesh, surfaceType, "surface_normal" );
+                        writer2->registerVector(
+                            norm_vec, surfaceMesh, surfaceType, "surface_normal" );
+                    }
                     norm_vec->setToScalar( 0 );
                     for ( auto &elem : surfaceMesh->getSurfaceIterator( surfaceType, 0 ) ) {
                         auto norm = elem.norm();
@@ -345,9 +370,12 @@ void testWriterMesh( AMP::UnitTest &ut,
                 if ( geom ) {
                     auto norm_vec =
                         AMP::LinearAlgebra::createVector( DOF_surfaceVec, norm_var, true );
-                    if ( properties.registerVectorWithMesh )
-                        writer->registerVector(
+                    if ( properties.registerVectorWithMesh ) {
+                        writer1->registerVector(
                             norm_vec, surfaceMesh, surfaceType, "geometry_normal" );
+                        writer2->registerVector(
+                            norm_vec, surfaceMesh, surfaceType, "geometry_normal" );
+                    }
                     norm_vec->setToScalar( 0 );
                     for ( auto &elem : surfaceMesh->getSurfaceIterator( surfaceType, 0 ) ) {
                         auto norm = geom->surfaceNorm( elem.centroid() );
@@ -359,8 +387,10 @@ void testWriterMesh( AMP::UnitTest &ut,
             }
             // Store the logical coordinate
             auto logical = calcLogical( mesh2 );
-            if ( logical && properties.registerVectorWithMesh )
-                writer->registerVector( logical, mesh2, AMP::Mesh::GeomType::Vertex, "logical" );
+            if ( logical && properties.registerVectorWithMesh ) {
+                writer1->registerVector( logical, mesh2, AMP::Mesh::GeomType::Vertex, "logical" );
+                writer2->registerVector( logical, mesh2, AMP::Mesh::GeomType::Vertex, "logical" );
+            }
         }
     }
 
@@ -392,8 +422,7 @@ void testWriterMesh( AMP::UnitTest &ut,
     // Write a single output file
     if ( globalComm.getSize() <= 20 ) {
         globalComm.barrier();
-        writer->setDecomposition( 1 );
-        writer->writeFile( fname + "proc_single", 0 );
+        writer1->writeFile( fname + "proc_single", 0 );
         globalComm.barrier();
     }
     double t5 = AMP::AMP_MPI::time();
@@ -401,8 +430,7 @@ void testWriterMesh( AMP::UnitTest &ut,
     // Write a separate output file for each rank
     {
         globalComm.barrier();
-        writer->setDecomposition( 2 );
-        writer->writeFile( fname + "proc_multiple", 0 );
+        writer2->writeFile( fname + "proc_multiple", 0 );
         globalComm.barrier();
     }
     double t6 = AMP::AMP_MPI::time();
