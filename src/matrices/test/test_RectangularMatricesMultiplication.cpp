@@ -61,9 +61,16 @@ void myTest( AMP::UnitTest *ut, const std::string &exeName )
     std::vector<std::string> types;
     if ( globalComm.getSize() == 1 )
         types.emplace_back( "DenseSerialMatrix" );
+
 #ifdef AMP_USE_TRILINOS
+    #if defined( AMP_USE_TRILINOS_EPETRA )
     types.emplace_back( "ManagedEpetraMatrix" );
+    #endif
+    #if defined( AMP_USE_TRILINOS_TPETRA )
+    types.emplace_back( "ManagedTpetraMatrix" );
+    #endif
 #endif
+
     for ( auto &type : types ) {
         auto tmp = exeName + ": " + type;
         // create four matrices

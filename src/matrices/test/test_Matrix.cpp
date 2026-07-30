@@ -44,20 +44,18 @@ int main( int argc, char **argv )
 
     // Get the types of matrices to test
     std::vector<std::string> types;
-    // types.emplace_back( "CSRMatrix" );
+    types.emplace_back( "CSRMatrix" );
 #ifdef AMP_USE_TRILINOS_TPETRA
     types.emplace_back( "ManagedTpetraMatrix" );
 #endif
-#ifdef AMP_USE_TRILINOS_EPETRA
-    // types.emplace_back( "ManagedEpetraMatrix" );
-#endif
 #ifdef AMP_USE_PETSC
-    // types.emplace_back( "NativePetscMatrix" );
+    types.emplace_back( "NativePetscMatrix" );
 #endif
-    // if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getSize() == 1 )
-    //     types.emplace_back( "DenseSerialMatrix" );
+    if ( AMP::AMP_MPI( AMP_COMM_WORLD ).getSize() == 1 )
+        types.emplace_back( "DenseSerialMatrix" );
 
-    // Test some basic properties AMP::pout << "Running basic tests" << std::endl << std::endl;
+    // Test some basic properties
+    AMP::pout << "Running basic tests" << std::endl << std::endl;
     testBasics( ut, "auto" );
     for ( auto &type : types )
         testBasics( ut, type );
@@ -83,20 +81,20 @@ int main( int argc, char **argv )
     AMP::pout << std::endl;
 
     // Test using the copy factories between types
-    // for ( auto type1 : types ) {
-    //     for ( auto type2 : types ) {
-    //         if ( ( type1 == "DenseSerialMatrix" ) != ( type2 == "DenseSerialMatrix" ) )
-    //             continue;
-    //         AMP::pout << "Running copy tests for " << type1 << " --> " << type2;
-    //         auto t1       = std::chrono::high_resolution_clock::now();
-    //         using DOF     = DOFMatrixTestFactory<3, 3, AMPCubeGenerator5>;
-    //         auto factory1 = std::make_shared<DOF>( type1 );
-    //         auto factory2 = std::make_shared<DOF>( type2 );
-    //         test_matrix_loop( ut, factory1, factory2 );
-    //         auto t2 = std::chrono::high_resolution_clock::now();
-    //         AMP::pout << " (" << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;
-    //     }
-    // }
+    for ( auto type1 : types ) {
+        for ( auto type2 : types ) {
+            if ( ( type1 == "DenseSerialMatrix" ) != ( type2 == "DenseSerialMatrix" ) )
+                continue;
+            AMP::pout << "Running copy tests for " << type1 << " --> " << type2;
+            auto t1       = std::chrono::high_resolution_clock::now();
+            using DOF     = DOFMatrixTestFactory<3, 3, AMPCubeGenerator5>;
+            auto factory1 = std::make_shared<DOF>( type1 );
+            auto factory2 = std::make_shared<DOF>( type2 );
+            test_matrix_loop( ut, factory1, factory2 );
+            auto t2 = std::chrono::high_resolution_clock::now();
+            AMP::pout << " (" << 1e-3 * to_ms( t2 - t1 ) << " s)" << std::endl;
+        }
+    }
 
     ut.report();
     PROFILE_SAVE( "test_Matrix" );

@@ -9,6 +9,7 @@ DISABLE_WARNINGS
 #include "Tpetra_FECrsMatrix.hpp"
 #include <Teuchos_Comm.hpp>
 #include <Teuchos_OrdinalTraits.hpp>
+#include <Tpetra_Details_makeColMap_decl.hpp>
 #include <Tpetra_RowMatrixTransposer.hpp>
 ENABLE_WARNINGS
 
@@ -16,21 +17,50 @@ ENABLE_WARNINGS
 
 namespace AMP::LinearAlgebra {
 
-
-template<typename ST, typename LO, typename GO, typename NT>
-static inline auto createTpetraMap( std::shared_ptr<AMP::Discretization::DOFManager> dofManager,
-                                    const AMP_MPI &ampComm )
+template<typename LO, typename GO, typename NT>
+static inline auto createRowMap( std::shared_ptr<AMP::Discretization::DOFManager> DOFs )
 {
-    AMP_DEBUG_ASSERT( dofManager );
 #ifdef AMP_USE_MPI
-    const auto &mpiComm = ampComm.getCommunicator();
-    auto comm           = Teuchos::rcp( new Teuchos::MpiComm<int>( mpiComm ) );
+    const auto &ampComm = DOFs->getComm().getCommunicator();
+    auto tpComm         = Teuchos::rcp( new Teuchos::MpiComm<int>( ampComm ) );
 #else
-    auto comm = Tpetra::getDefaultComm();
+    auto tpComm = Tpetra::getDefaultComm();
 #endif
+    return Teuchos::rcp(
+        new Tpetra::Map<LO, GO, NT>( DOFs->numGlobalDOF(), DOFs->numLocalDOF(), 0, tpComm ) );
+}
 
-    return Teuchos::rcp( new Tpetra::Map<LO, GO, NT>(
-        dofManager->numGlobalDOF(), dofManager->numLocalDOF(), 0, comm ) );
+template<typename LO, typename GO, typename NT>
+static inline auto createColumnMap( std::shared_ptr<AMP::Discretization::DOFManager> DOFs )
+{
+#ifdef AMP_USE_MPI
+    const auto &ampComm = DOFs->getComm().getCommunicator();
+    auto tpComm         = Teuchos::rcp( new Teuchos::MpiComm<int>( ampComm ) );
+#else
+    auto tpComm = Tpetra::getDefaultComm();
+#endif
+    const auto numLocal = static_cast<GO>( DOFs->numLocalDOF() );
+    auto domainMap =
+        Teuchos::rcp( new Tpetra::Map<LO, GO, NT>( DOFs->numGlobalDOF(), numLocal, 0, tpComm ) );
+
+    // all globals are contiguous local indices shifted up by starting DOF
+    // followed by all remote DOFs
+    const auto startDOF  = static_cast<GO>( DOFs->beginDOF() );
+    auto remoteDOFs      = DOFs->getRemoteDOFs();
+    const auto numRemote = static_cast<GO>( remoteDOFs.size() );
+    Kokkos::View<GO *, typename NT::memory_space> gids( "TpetraMatrixData::createColumnMap gids",
+                                                        numLocal + numRemote );
+    for ( GO n = 0; n < numLocal; ++n ) {
+        gids( n ) = startDOF + n;
+    }
+    for ( GO n = 0; n < numRemote; ++n ) {
+        gids( numLocal + n ) = static_cast<GO>( remoteDOFs[n] );
+    }
+
+    Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> colMap;
+    int err = Tpetra::Details::makeColMap<LO, GO, NT>( colMap, domainMap, gids );
+    AMP_ASSERT( err == 0 );
+    return colMap;
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -45,8 +75,16 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
     const auto rowDOFs = matParams->getLeftDOFManager();
     AMP_INSIST( rowDOFs && colDOFs,
                 "MatrixParameters must provide non-null DOFManagers to build TpetraMatrixData" );
-    d_RangeMap  = createTpetraMap<ST, LO, GO, NT>( rowDOFs, params->getComm() );
-    d_DomainMap = createTpetraMap<ST, LO, GO, NT>( colDOFs, params->getComm() );
+
+
+    // range map and row map are the same regardless of MPI distribution
+    d_RowMap = createRowMap<LO, GO, NT>( rowDOFs );
+
+    // Domain map and column map are not the same for >1 rank
+    // domain is simple, just global and local counts
+    // column map needs to know about entries outside of diagonal block, so specific ghost
+    // information gets included
+    d_ColumnMap = createColumnMap<LO, GO, NT>( colDOFs );
 
     // count up entries per row and build matrix if the getRow function exists
     const auto &getRow = matParams->getRowFunction();
@@ -61,8 +99,8 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
         }
         Teuchos::ArrayView<size_t> colView( entries.data(), entries.size() );
         d_tpetraMatrix =
-            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, colView ) );
-        //            new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, d_DomainMap, colView ) );
+            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RowMap, d_ColumnMap, colView ) );
+        // new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RowMap, colView ) );
         // Fill matrix and call fillComplete to set the nz structure
         // Without setting column id's Tpetra will not allocate any memory
         for ( size_t i = 0; i < nrows; ++i ) {
@@ -70,13 +108,13 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
             createValuesByGlobalID( i + srow, cols );
         }
         d_tpetraMatrix->setAllToScalar( 0.0 );
-        //        d_tpetraMatrix->fillComplete();
-        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
+        d_tpetraMatrix->fillComplete( d_ColumnMap, d_RowMap );
         // d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) )
         // ),
         //                           Teuchos::VERB_EXTREME );
     } else {
-        d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RangeMap, 0 ) );
+        AMP_WARNING( "making tpetra matrix without column map" );
+        d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RowMap, 0 ) );
     }
 }
 
@@ -110,8 +148,8 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( const TpetraMatrixData &rhs 
             d_tpetraMatrix->replaceGlobalValues( i, numCols, vals.data(), cols.data() ),
             "TpetraMatrixData copy constructor" );
     }
-    d_RangeMap  = rhs.d_RangeMap;
-    d_DomainMap = rhs.d_DomainMap;
+    d_RowMap    = rhs.d_RowMap;
+    d_ColumnMap = rhs.d_ColumnMap;
     makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 }
 
@@ -178,34 +216,10 @@ TpetraMatrixData<ST, LO, GO, NT>::createView( std::shared_ptr<MatrixData> in_mat
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixData<ST, LO, GO, NT>::setTpetraMaps( std::shared_ptr<Vector> range,
-                                                      std::shared_ptr<Vector> domain )
-{
-    if ( range ) {
-#ifdef AMP_USE_MPI
-        const auto &mpiComm = range->getComm().getCommunicator();
-        auto comm           = Teuchos::rcp( new Teuchos::MpiComm<int>( mpiComm ) );
-#else
-        auto comm = Tpetra::getDefaultComm();
-#endif
-        auto N_global = static_cast<GO>( range->getGlobalSize() );
-        auto N_local  = static_cast<LO>( range->getLocalSize() );
-        d_RangeMap    = Teuchos::rcp( new Tpetra::Map<LO, GO, NT>( N_global, N_local, comm ) );
-        if ( domain ) {
-            N_global    = static_cast<GO>( domain->getGlobalSize() );
-            N_local     = static_cast<LO>( domain->getLocalSize() );
-            d_DomainMap = Teuchos::rcp( new Tpetra::Map<LO, GO, NT>( N_global, N_local, comm ) );
-        }
-    }
-}
-
-
-template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::fillComplete()
 {
     if ( d_tpetraMatrix->isFillActive() )
-        d_tpetraMatrix->fillComplete( d_DomainMap, d_RangeMap );
-    //        d_tpetraMatrix->fillComplete();
+        d_tpetraMatrix->fillComplete( d_ColumnMap, d_RowMap );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -341,13 +355,20 @@ std::shared_ptr<Vector> TpetraMatrixData<ST, LO, GO, NT>::createOutputVector() c
 template<typename ST, typename LO, typename GO, typename NT>
 size_t TpetraMatrixData<ST, LO, GO, NT>::numGlobalRows() const
 {
-    return d_tpetraMatrix->getGlobalNumRows();
+    // annoyingly, Tpetra global row/column counts include mutually owned DOFs with multiplicity
+    // to get actual (mathematical) size of matrix need to jump through some hoops
+    const auto startRow = d_tpetraMatrix->getRangeMap()->getMinAllGlobalIndex();
+    const auto endRow   = d_tpetraMatrix->getRangeMap()->getMaxAllGlobalIndex();
+    return static_cast<size_t>( 1 + endRow - startRow );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 size_t TpetraMatrixData<ST, LO, GO, NT>::numGlobalColumns() const
 {
-    return d_tpetraMatrix->getGlobalNumCols();
+    // same commentary as numGlobalRows
+    const auto startCol = d_tpetraMatrix->getDomainMap()->getMinAllGlobalIndex();
+    const auto endCol   = d_tpetraMatrix->getDomainMap()->getMaxAllGlobalIndex();
+    return static_cast<size_t>( 1 + endCol - startCol );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

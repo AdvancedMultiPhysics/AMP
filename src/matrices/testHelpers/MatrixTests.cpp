@@ -78,9 +78,13 @@ pseudoLaplacianFromDOFs( const std::string &type,
     auto matrix_h = AMP::LinearAlgebra::createMatrix( inVec, outVec, type );
     fillWithPseudoLaplacian( matrix_h );
     if ( memLoc == AMP::Utilities::MemoryType::host ) {
-        matrix_h->setBackend( backend );
+        // matrix is already on host, only set backend if it is native
+        if ( type == "CSRMatrix" ) {
+            matrix_h->setBackend( backend );
+        }
         return matrix_h;
     } else if ( type == "CSRMatrix" ) {
+        // want a device side matrix, only support migration for native matrices
         return AMP::LinearAlgebra::createMatrix( matrix_h, memLoc, backend );
     }
     AMP_ERROR( "Only native CSRMatrix supports non-host memory" );

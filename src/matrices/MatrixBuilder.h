@@ -32,6 +32,7 @@ std::string getDefaultMatrixType();
  *                      auto: Automatically determined based on build (default)
  *                      ManagedPetscMatrix
  *                      ManagedEpetraMatrix
+ *                      ManagedTpetraMatrix
  *                      DenseSerialMatrix
  * \param getColumnIDs Function to provide the column indices given the row index.
  *                      If not provided, with will default to calling the getRowDOFs function on the
@@ -56,6 +57,7 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr right,
  *                      auto: Automatically determined based on build (default)
  *                      ManagedPetscMatrix
  *                      ManagedEpetraMatrix
+ *                      ManagedTpetraMatrix
  *                      DenseSerialMatrix
  * \param getColumnIDs Function to provide the column indices given the row index.
  *                      If not provided, with will default to calling the getRowDOFs function on the

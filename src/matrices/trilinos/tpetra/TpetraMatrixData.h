@@ -36,13 +36,13 @@ protected:
      */
     Teuchos::RCP<Tpetra::CrsMatrix<ST, LO, GO, NT>> d_tpetraMatrix;
 
-    /** \brief Range map for the Tpetra_CrsMatrix
+    /** \brief Row map for the Tpetra_CrsMatrix
      */
-    Teuchos::RCP<Tpetra::Map<LO, GO, NT>> d_RangeMap;
+    Teuchos::RCP<Tpetra::Map<LO, GO, NT>> d_RowMap;
 
-    /** \brief Domain map for the Tpetra_CrsMatrix
+    /** \brief Column map for the Tpetra_CrsMatrix
      */
-    Teuchos::RCP<Tpetra::Map<LO, GO, NT>> d_DomainMap;
+    Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> d_ColumnMap;
 
     //!  \f$A_{i,j}\f$ storage of off-core data
     std::map<int, std::map<GO, ST>> d_OtherData;
@@ -84,14 +84,6 @@ public:
     std::string type() const override { return "TpetraMatrixData"; }
 
     void removeRange( AMP::Scalar, AMP::Scalar ) override { AMP_ERROR( "Not implemented" ); }
-
-    /** \brief Change the TpetraMaps for the matrix
-     * \param[in] range  A vector that represents the range: y in y = A*x (row map)
-     * \param[in] domain  A vector that represents the domain: x in y = A*x (column map)
-     * \details  This does not change the matrix, just the maps stored above
-     *
-     */
-    void setTpetraMaps( std::shared_ptr<Vector> range, std::shared_ptr<Vector> domain );
 
     /** \brief  Return an Tpetra_CrsMatrix
      * \return An Tpetra_CrsMatrix view of this matrix

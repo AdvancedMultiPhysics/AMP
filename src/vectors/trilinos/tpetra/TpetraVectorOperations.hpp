@@ -93,7 +93,7 @@ void TpetraVectorOperations<ST, LO, GO, NT>::copy( const VectorData &x, VectorDa
             AMP_ASSERT( x.getType( 0 ) == z.getType( 0 ) && x.getType( 0 ) == typeST );
             AMP_ASSERT( x.sizeOfDataBlock() == z.sizeOfDataBlock() );
             const auto xvData = x.getRawDataBlockAsVoid( 0 );
-            z.putRawData( xvData, typeST );
+            z.putRawData( xvData, typeST, x.getMemoryLocation() );
         } else {
             AMP_ERROR( "TpetraVectorOperations::copy for different VectorData only implemented for "
                        "one data block" );

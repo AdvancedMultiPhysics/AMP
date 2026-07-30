@@ -118,16 +118,21 @@ size_t matMatTest( AMP::UnitTest *ut, const std::string &input_file )
 
     // Test on defined matrix types
 #if defined( AMP_USE_TRILINOS )
+    #if defined( AMP_USE_TRILINOS_EPETRA )
     matMatTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, "serial", "host" );
+    #endif
+    #if defined( AMP_USE_TRILINOS_TPETRA )
+    matMatTestWithDOFs( ut, "ManagedTpetraMatrix", scalarDOFs, "serial", "host" );
+    #endif
 #endif
 #if defined( AMP_USE_PETSC )
     matMatTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, "serial", "host" );
 #endif
 
     std::vector<std::pair<std::string, std::string>> backendsAndMemory;
-    // backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
+    backendsAndMemory.emplace_back( std::make_pair( "serial", "host" ) );
 #ifdef AMP_USE_KOKKOS
-    // backendsAndMemory.emplace_back( "kokkos", "host" );
+    backendsAndMemory.emplace_back( "kokkos", "host" );
 #endif
 #ifdef AMP_USE_DEVICE
     backendsAndMemory.emplace_back( std::make_pair( "hip_cuda", "device" ) );

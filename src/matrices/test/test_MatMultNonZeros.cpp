@@ -113,7 +113,12 @@ int main( int argc, char **argv )
     AMP::UnitTest ut;
 
 #ifdef AMP_USE_TRILINOS
+    #if defined( AMP_USE_TRILINOS_EPETRA )
     runTests( ut, "ManagedEpetraMatrix" );
+    #endif
+    #if defined( AMP_USE_TRILINOS_TPETRA )
+    runTests( ut, "ManagedTpetraMatrix" );
+    #endif
 #endif
 
     runTests( ut, "CSRMatrix" );

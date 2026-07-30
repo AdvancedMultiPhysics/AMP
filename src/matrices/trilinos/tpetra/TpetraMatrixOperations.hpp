@@ -45,6 +45,8 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::mult( std::shared_ptr<const Vector>
                                                    std::shared_ptr<Vector> out )
 {
     PROFILE( "TpetraMatrixOperations<ST, LO, GO, NT>::mult" );
+    AMP_ASSERT( in->getLocalSize() == A.numLocalColumns() );
+    AMP_ASSERT( out->getLocalSize() == A.numLocalRows() );
     AMP_ASSERT( in->getGlobalSize() == A.numGlobalColumns() );
     AMP_ASSERT( out->getGlobalSize() == A.numGlobalRows() );
     auto in_view       = TpetraVector::constView( in );
