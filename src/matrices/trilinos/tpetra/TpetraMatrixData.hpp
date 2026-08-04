@@ -18,7 +18,7 @@ ENABLE_WARNINGS
 namespace AMP::LinearAlgebra {
 
 template<typename LO, typename GO, typename NT>
-static inline auto createRowMap( std::shared_ptr<AMP::Discretization::DOFManager> DOFs )
+static inline auto createNoGhostMap( std::shared_ptr<AMP::Discretization::DOFManager> DOFs )
 {
 #ifdef AMP_USE_MPI
     const auto &ampComm = DOFs->getComm().getCommunicator();
@@ -78,12 +78,13 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
 
 
     // range map and row map are the same regardless of MPI distribution
-    d_RowMap = createRowMap<LO, GO, NT>( rowDOFs );
+    d_RowMap = createNoGhostMap<LO, GO, NT>( rowDOFs );
 
     // Domain map and column map are not the same for >1 rank
     // domain is simple, just global and local counts
     // column map needs to know about entries outside of diagonal block, so specific ghost
     // information gets included
+    d_DomainMap = createNoGhostMap<LO, GO, NT>( colDOFs );
     d_ColumnMap = createColumnMap<LO, GO, NT>( colDOFs );
 
     // count up entries per row and build matrix if the getRow function exists
@@ -109,9 +110,6 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
         }
         d_tpetraMatrix->setAllToScalar( 0.0 );
         d_tpetraMatrix->fillComplete( d_ColumnMap, d_RowMap );
-        // d_tpetraMatrix->describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) )
-        // ),
-        //                           Teuchos::VERB_EXTREME );
     } else {
         AMP_WARNING( "making tpetra matrix without column map" );
         d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RowMap, 0 ) );

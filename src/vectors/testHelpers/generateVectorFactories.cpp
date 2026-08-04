@@ -332,7 +332,7 @@ std::shared_ptr<VectorFactory> generateVectorFactory( const std::string &name )
 #endif
         } else if ( args[0] == "TpetraVector" ) {
 #if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_TPETRA )
-            factory.reset( new ViewFactory<TpetraVector>( factory2 ) );
+            factory.reset( new ViewFactory<TpetraVector<>>( factory2 ) );
 #endif
         } else {
             AMP_ERROR( "Unknown template argument for ViewFactory" );

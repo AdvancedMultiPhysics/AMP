@@ -302,12 +302,6 @@ static void test( std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix )
     size_t N_global_row2 = matrix->numGlobalRows();
     size_t N_global_col1 = rightDOF->numGlobalDOF();
     size_t N_global_col2 = matrix->numGlobalColumns();
-
-    AMP::pout << "lr1: " << N_local_row1 << ", lr2: " << N_local_row2 << std::endl;
-    AMP::pout << "gr1: " << N_global_row1 << ", gr2: " << N_global_row2 << std::endl;
-    AMP::pout << "lc1: " << N_local_col1 << ", lc2: " << N_local_col2 << std::endl;
-    AMP::pout << "gc1: " << N_global_col1 << ", gc2: " << N_global_col2 << std::endl;
-
     AMP_ASSERT( N_local_row1 == N_local_row2 );
     AMP_ASSERT( N_local_col1 == N_local_col2 );
     AMP_ASSERT( N_global_row1 == N_global_row2 );

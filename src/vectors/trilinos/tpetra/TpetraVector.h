@@ -2,6 +2,7 @@
 #define included_AMP_TpetraVector
 
 #include "AMP/vectors/Vector.h"
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
 DISABLE_WARNINGS
 #include "Tpetra_Map_decl.hpp"
@@ -27,12 +28,19 @@ namespace AMP::LinearAlgebra {
   classes
   *  -# Provides a static method for creating an Tpetra::Vector view of an AMP Vector.
   */
+template<typename ST = Tpetra_ST,
+         typename LO = Tpetra_LO,
+         typename GO = Tpetra_GO,
+         typename NT = Tpetra_NT>
 class TpetraVector final
 {
+    // only support float and double scalar types for now
+    static_assert( std::is_same_v<ST, float> || std::is_same_v<ST, double> );
+
 public:
     /**  \brief Destructor
      */
-    ~TpetraVector();
+    ~TpetraVector() {}
 
     /**
       *  \brief  Obtain Tpetra::Vector for use in Trilinos routines
@@ -54,7 +62,7 @@ public:
       }
       \endcode
       */
-    inline Tpetra::Vector<> &getTpetra_Vector() { return *d_tpetra; }
+    inline Tpetra::Vector<ST, LO, GO, NT> &getTpetra_Vector() { return *d_tpetra; }
 
     /**
       *  \brief  Obtain Tpetra::Vector for use in Trilinos routines
@@ -76,7 +84,7 @@ public:
       }
       \endcode
       */
-    inline const Tpetra::Vector<> &getTpetra_Vector() const { return *d_tpetra; }
+    inline const Tpetra::Vector<ST, LO, GO, NT> &getTpetra_Vector() const { return *d_tpetra; }
 
     /**
      *  \brief  Obtain a view of a vector with an Tpetra::Vector wrapper
@@ -89,7 +97,10 @@ public:
      *  Tpetra::Vector wrapper around the Vector.  If it fails, an
      *  exception is thrown.
      */
-    static std::shared_ptr<TpetraVector> view( Vector::shared_ptr vec );
+    static std::shared_ptr<TpetraVector<ST, LO, GO, NT>>
+    view( Vector::shared_ptr vec, const Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> &map );
+
+    static std::shared_ptr<TpetraVector<ST, LO, GO, NT>> view( Vector::shared_ptr vec );
 
     /**
      *  \brief  Obtain a view of a vector with an Tpetra::Vector wrapper
@@ -102,20 +113,27 @@ public:
      *  Tpetra::Vector wrapper around the Vector.  If it fails, an
      *  exception is thrown.
      */
-    static std::shared_ptr<const TpetraVector> constView( Vector::const_shared_ptr vec );
+    static std::shared_ptr<const TpetraVector<ST, LO, GO, NT>>
+    constView( Vector::const_shared_ptr vec,
+               const Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> &map );
+
+    static std::shared_ptr<const TpetraVector<ST, LO, GO, NT>>
+    constView( Vector::const_shared_ptr vec );
 
 public:
-    inline Tpetra::Vector<> &getNativeVec() { return *d_tpetra; }
-    inline const Tpetra::Vector<> &getNativeVec() const { return *d_tpetra; }
+    inline Tpetra::Vector<ST, LO, GO, NT> &getNativeVec() { return *d_tpetra; }
+    inline const Tpetra::Vector<ST, LO, GO, NT> &getNativeVec() const { return *d_tpetra; }
     inline std::shared_ptr<Vector> getManagedVec() { return d_AMP; }
     inline std::shared_ptr<const Vector> getManagedVec() const { return d_AMP; }
 
 private:
     TpetraVector() = delete;
-    explicit TpetraVector( std::shared_ptr<Vector> );
+    explicit TpetraVector( std::shared_ptr<Vector> vec );
+    explicit TpetraVector( std::shared_ptr<Vector> vec,
+                           const Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> &map );
 
 private:
-    Teuchos::RCP<Tpetra::Vector<>> d_tpetra;
+    Teuchos::RCP<Tpetra::Vector<ST, LO, GO, NT>> d_tpetra;
     std::shared_ptr<Vector> d_AMP;
 };
 

@@ -5,6 +5,7 @@
 #include "AMP/utils/UnitTest.h"
 #include "AMP/vectors/Vector.h"
 #include "AMP/vectors/testHelpers/VectorTests.h"
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
 #include "Tpetra_Vector_decl.hpp"
 /// \cond UNDOCUMENTED
@@ -13,10 +14,10 @@
 namespace AMP::LinearAlgebra {
 
 
-template<typename ST = double,
-         typename LO = int32_t,
-         typename GO = long long,
-         typename NT = Tpetra::Vector<>::node_type>
+template<typename ST = Tpetra_ST,
+         typename LO = Tpetra_LO,
+         typename GO = Tpetra_GO,
+         typename NT = Tpetra_NT>
 class NativeTpetraFactory : public VectorFactory
 {
 public:

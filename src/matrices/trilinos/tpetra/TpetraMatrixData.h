@@ -25,7 +25,7 @@ class Vector;
 template<typename ST = Tpetra_ST,
          typename LO = Tpetra_LO,
          typename GO = Tpetra_GO,
-         typename NT = Tpetra::Vector<>::node_type>
+         typename NT = Tpetra_NT>
 class TpetraMatrixData : public MatrixData
 {
 private:
@@ -36,11 +36,15 @@ protected:
      */
     Teuchos::RCP<Tpetra::CrsMatrix<ST, LO, GO, NT>> d_tpetraMatrix;
 
-    /** \brief Row map for the Tpetra_CrsMatrix
+    /** \brief Row map for the Tpetra_CrsMatrix, same as range map
      */
     Teuchos::RCP<Tpetra::Map<LO, GO, NT>> d_RowMap;
 
-    /** \brief Column map for the Tpetra_CrsMatrix
+    /** \brief Domain map for the Tpetra_CrsMatrix, like the column map without ghosts
+     */
+    Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> d_DomainMap;
+
+    /** \brief Column map for the Tpetra_CrsMatrix, like domain but with ghosts
      */
     Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> d_ColumnMap;
 

@@ -19,7 +19,7 @@ namespace AMP::LinearAlgebra {
 template<typename ST = Tpetra_ST,
          typename LO = Tpetra_LO,
          typename GO = Tpetra_GO,
-         typename NT = Tpetra::Vector<>::node_type>
+         typename NT = Tpetra_NT>
 class TpetraVectorData : public GhostDataHelper<ST>
 {
 public:

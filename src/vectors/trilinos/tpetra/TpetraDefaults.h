@@ -1,6 +1,7 @@
 #ifndef included_TpetraDefaults_H
 #define included_TpetraDefaults_H
 
+#include "Tpetra_Vector_decl.hpp"
 #include <Tpetra_Core.hpp>
 
 #if defined( HAVE_TPETRA_INST_DOUBLE )
@@ -28,5 +29,7 @@ using Tpetra_GO = long long;
 #else
     #error "Tpetra not configured for given local and global ordinal types"
 #endif
+
+using Tpetra_NT = typename Tpetra::Vector<>::node_type;
 
 #endif

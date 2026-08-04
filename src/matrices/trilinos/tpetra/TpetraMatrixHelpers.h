@@ -14,7 +14,7 @@ class ManagedTpetraMatrix;
 template<typename ST = Tpetra_ST,
          typename LO = Tpetra_LO,
          typename GO = Tpetra_GO,
-         typename NT = Tpetra::Vector<>::node_type>
+         typename NT = Tpetra_NT>
 std::shared_ptr<ManagedTpetraMatrix<ST, LO, GO, NT>> getTpetraMatrix( std::shared_ptr<Matrix> mat );
 } // namespace AMP::LinearAlgebra
 #endif

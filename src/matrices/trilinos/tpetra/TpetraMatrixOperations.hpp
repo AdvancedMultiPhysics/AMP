@@ -49,11 +49,12 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::mult( std::shared_ptr<const Vector>
     AMP_ASSERT( out->getLocalSize() == A.numLocalRows() );
     AMP_ASSERT( in->getGlobalSize() == A.numGlobalColumns() );
     AMP_ASSERT( out->getGlobalSize() == A.numGlobalRows() );
-    auto in_view       = TpetraVector::constView( in );
-    auto out_view      = TpetraVector::view( out );
+    auto &crs_mat      = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+    auto in_view       = TpetraVector<ST, LO, GO, NT>::constView( in, crs_mat.getDomainMap() );
+    auto out_view      = TpetraVector<ST, LO, GO, NT>::view( out, crs_mat.getRangeMap() );
     const auto &in_vec = in_view->getTpetra_Vector();
     auto &out_vec      = out_view->getTpetra_Vector();
-    getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).apply( in_vec, out_vec );
+    crs_mat.apply( in_vec, out_vec );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -64,10 +65,10 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::multTranspose( std::shared_ptr<cons
     PROFILE( "TpetraMatrixOperations<ST, LO, GO, NT>::multTranspose" );
     AMP_ASSERT( in->getGlobalSize() == A.numGlobalColumns() );
     AMP_ASSERT( out->getGlobalSize() == A.numGlobalRows() );
-    auto in_view  = TpetraVector::constView( in );
-    auto out_view = TpetraVector::view( out );
-    getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).apply(
-        in_view->getTpetra_Vector(), out_view->getTpetra_Vector(), Teuchos::TRANS );
+    auto &crs_mat = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+    auto in_view  = TpetraVector<ST, LO, GO, NT>::constView( in, crs_mat.getRangeMap() );
+    auto out_view = TpetraVector<ST, LO, GO, NT>::view( out, crs_mat.getDomainMap() );
+    crs_mat.apply( in_view->getTpetra_Vector(), out_view->getTpetra_Vector(), Teuchos::TRANS );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -116,17 +117,17 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
     Kokkos::View<ST *> diag_vals( "diag tmp", in->getLocalSize() );
     in->getRawData<ST>( diag_vals.data() );
 
-    auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+    auto &crs_mat = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
     // matrix.describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) ) ),
     //                  Teuchos::VERB_EXTREME );
 
-    matrix.resumeFill();
+    crs_mat.resumeFill();
 
     // Get the current row's data
     for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
         local_inds_host_view_type colView;
         values_host_view_type valsView;
-        matrix.getLocalRowView( row, colView, valsView );
+        crs_mat.getLocalRowView( row, colView, valsView );
 
         // Find the diagonal entry within the row's column indices
         for ( size_t k = 0; k < colView.size(); ++k ) {
@@ -135,15 +136,13 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setDiagonal( std::shared_ptr<const 
                                                        1 ); // Column index for replacement
                 Teuchos::ArrayView<ST> replaceValues( &diag_vals[row],
                                                       1 ); // New value for replacement
-                matrix.replaceLocalValues( row, replaceColInds, replaceValues );
+                crs_mat.replaceLocalValues( row, replaceColInds, replaceValues );
                 break;
             }
         }
     }
 
-    matrix.fillComplete();
-    // matrix.describe( *( Teuchos::getFancyOStream( Teuchos::rcpFromRef( std::cout ) ) ),
-    //                  Teuchos::VERB_EXTREME );
+    crs_mat.fillComplete();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -165,9 +164,9 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::extractDiagonal( MatrixData const &A,
                                                               std::shared_ptr<Vector> buf )
 {
-    const auto &tMat = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
-    auto view        = TpetraVector::view( buf );
-    tMat.getLocalDiagCopy( view->getTpetra_Vector() );
+    const auto &crs_mat = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+    auto view           = TpetraVector<ST, LO, GO, NT>::view( buf, crs_mat.getRangeMap() );
+    crs_mat.getLocalDiagCopy( view->getTpetra_Vector() );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -201,10 +200,11 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::scale( AMP::Scalar alpha,
                                                     MatrixData &A )
 {
     AMP_ASSERT( D->getGlobalSize() == A.numGlobalRows() );
-    auto D_view       = TpetraVector::constView( D );
+    auto &crs_mat     = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
+    auto D_view       = TpetraVector<ST, LO, GO, NT>::constView( D, crs_mat.getRangeMap() );
     const auto &D_vec = D_view->getTpetra_Vector();
-    getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).leftScale( D_vec );
-    getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).scale( static_cast<ST>( alpha ) );
+    crs_mat.leftScale( D_vec );
+    crs_mat.scale( static_cast<ST>( alpha ) );
 }
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixOperations<ST, LO, GO, NT>::scaleInv( AMP::Scalar,

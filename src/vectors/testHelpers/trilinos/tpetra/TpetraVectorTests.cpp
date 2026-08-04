@@ -26,7 +26,7 @@ void TpetraVectorTests::testTpetraVector( AMP::UnitTest *ut ) { VerifyNorms( ut 
 void TpetraVectorTests::VerifyNorms( AMP::UnitTest *ut )
 {
     auto vec  = d_factory->getVector();
-    auto view = AMP::LinearAlgebra::TpetraVector::view( vec );
+    auto view = AMP::LinearAlgebra::TpetraVector<>::view( vec );
     auto &Vec = view->getTpetra_Vector();
     int NVec  = Vec.getNumVectors();
     AMP_ASSERT( NVec == 1 );
