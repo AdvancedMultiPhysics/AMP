@@ -26,8 +26,8 @@ static inline auto createNoGhostMap( std::shared_ptr<AMP::Discretization::DOFMan
 #else
     auto tpComm = Tpetra::getDefaultComm();
 #endif
-    return Teuchos::rcp(
-        new Tpetra::Map<LO, GO, NT>( DOFs->numGlobalDOF(), DOFs->numLocalDOF(), 0, tpComm ) );
+    return Tpetra::createContigMapWithNode<LO, GO, NT>(
+        DOFs->numGlobalDOF(), DOFs->numLocalDOF(), tpComm );
 }
 
 template<typename LO, typename GO, typename NT>
@@ -109,10 +109,10 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( std::shared_ptr<MatrixParame
             createValuesByGlobalID( i + srow, cols );
         }
         d_tpetraMatrix->setAllToScalar( 0.0 );
-        d_tpetraMatrix->fillComplete( d_ColumnMap, d_RowMap );
+        d_tpetraMatrix->fillComplete( d_DomainMap, d_RowMap );
     } else {
-        AMP_WARNING( "making tpetra matrix without column map" );
-        d_tpetraMatrix = Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RowMap, 0 ) );
+        d_tpetraMatrix =
+            Teuchos::rcp( new Tpetra::CrsMatrix<ST, LO, GO, NT>( d_RowMap, d_ColumnMap, 0 ) );
     }
 }
 
@@ -148,6 +148,7 @@ TpetraMatrixData<ST, LO, GO, NT>::TpetraMatrixData( const TpetraMatrixData &rhs 
     }
     d_RowMap    = rhs.d_RowMap;
     d_ColumnMap = rhs.d_ColumnMap;
+    d_DomainMap = rhs.d_DomainMap;
     makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 }
 
@@ -217,7 +218,7 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::fillComplete()
 {
     if ( d_tpetraMatrix->isFillActive() )
-        d_tpetraMatrix->fillComplete( d_ColumnMap, d_RowMap );
+        d_tpetraMatrix->fillComplete( d_DomainMap, d_RowMap );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -403,24 +404,12 @@ void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID( size_t num_rows,
     std::vector<GO> tpetra_cols( num_cols );
     std::copy( cols, cols + num_cols, tpetra_cols.begin() );
 
-    if ( id == getTypeID<double>() ) {
+    if ( id == getTypeID<ST>() ) {
 
         for ( size_t i = 0; i != num_rows; i++ ) {
 
             std::vector<ST> row_vals;
-            ST *values;
-            if constexpr ( std::is_same_v<double, ST> ) {
-                const auto array_dptr = reinterpret_cast<const ST *>( vals );
-                values                = const_cast<ST *>( &array_dptr[num_cols * i] );
-            } else {
-                auto incoming_values = reinterpret_cast<const double *>( vals );
-                row_vals.resize( num_cols );
-                std::transform( &incoming_values[num_cols * i],
-                                &incoming_values[num_cols * i] + num_cols,
-                                row_vals.begin(),
-                                []( double c ) -> ST { return c; } );
-                values = row_vals.data();
-            }
+            const ST *values = reinterpret_cast<const ST *>( vals );
 
             auto nvals = d_tpetraMatrix->sumIntoGlobalValues(
                 rows[i], num_cols, values + num_cols * i, tpetra_cols.data() );
@@ -657,8 +646,8 @@ std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row )
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::makeConsistent( AMP::LinearAlgebra::ScatterType )
 {
-    fillComplete();
     setOtherData();
+    fillComplete();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

@@ -45,15 +45,19 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::mult( std::shared_ptr<const Vector>
                                                    std::shared_ptr<Vector> out )
 {
     PROFILE( "TpetraMatrixOperations<ST, LO, GO, NT>::mult" );
-    AMP_ASSERT( in->getLocalSize() == A.numLocalColumns() );
-    AMP_ASSERT( out->getLocalSize() == A.numLocalRows() );
-    AMP_ASSERT( in->getGlobalSize() == A.numGlobalColumns() );
-    AMP_ASSERT( out->getGlobalSize() == A.numGlobalRows() );
     auto &crs_mat      = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
-    auto in_view       = TpetraVector<ST, LO, GO, NT>::constView( in, crs_mat.getDomainMap() );
-    auto out_view      = TpetraVector<ST, LO, GO, NT>::view( out, crs_mat.getRangeMap() );
+    auto dom_map       = crs_mat.getDomainMap();
+    auto rng_map       = crs_mat.getRangeMap();
+    auto in_view       = TpetraVector<ST, LO, GO, NT>::constView( in, dom_map );
+    auto out_view      = TpetraVector<ST, LO, GO, NT>::view( out, rng_map );
     const auto &in_vec = in_view->getTpetra_Vector();
     auto &out_vec      = out_view->getTpetra_Vector();
+
+    AMP_ASSERT( dom_map->getLocalNumElements() == A.numLocalColumns() );
+    AMP_ASSERT( rng_map->getLocalNumElements() == A.numLocalRows() );
+    AMP_ASSERT( dom_map->getGlobalNumElements() == A.numGlobalColumns() );
+    AMP_ASSERT( rng_map->getGlobalNumElements() == A.numGlobalRows() );
+
     crs_mat.apply( in_vec, out_vec );
 }
 

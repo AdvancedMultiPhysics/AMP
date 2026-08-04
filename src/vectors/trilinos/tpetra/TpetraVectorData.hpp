@@ -29,7 +29,7 @@ TpetraVectorData<ST, LO, GO, NT>::TpetraVectorData(
 #endif
 
     auto map        = Teuchos::rcp( new Tpetra::Map<LO, GO, NT>(
-        dofManager->numGlobalDOF(), dofManager->numLocalDOF(), comm ) );
+        dofManager->numGlobalDOF(), dofManager->numLocalDOF(), 0, comm ) );
     d_pTpetraVector = Teuchos::rcp( new Tpetra::Vector<ST, LO, GO, NT>( map, true ) );
 }
 
@@ -40,16 +40,29 @@ TpetraVectorData<ST, LO, GO, NT>::~TpetraVectorData()
 
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraVectorData<ST, LO, GO, NT>::setValuesByLocalID(
-    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
+    size_t N, const size_t *indices, const void *in, const typeID &id, AMP::Utilities::MemoryType )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_INSIST( id == getTypeID<ST>(), "AMP Tpetra interface only supports matched scalar type" );
+    auto tVec = this->getTpetraVector();
+    auto vals = reinterpret_cast<const ST *>( in );
+    for ( size_t i = 0; i != N; i++ ) {
+        tVec->replaceLocalValue( indices[i], vals[i] );
+    }
+    this->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraVectorData<ST, LO, GO, NT>::addValuesByLocalID(
-    size_t, const size_t *, const void *, const typeID &, AMP::Utilities::MemoryType )
+    size_t N, const size_t *indices, const void *in, const typeID &id, AMP::Utilities::MemoryType )
 {
-    AMP_ERROR( "Not implemented" );
+    AMP_INSIST( id == getTypeID<ST>(), "AMP Tpetra interface only supports matched scalar type" );
+    auto tVec = this->getTpetraVector();
+    auto vals = reinterpret_cast<const ST *>( in );
+    auto data = tVec->getData();
+    for ( size_t i = 0; i != N; i++ ) {
+        tVec->sumIntoLocalValue( indices[i], vals[i] );
+    }
+    this->setUpdateStatus( UpdateState::LOCAL_CHANGED );
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -63,8 +76,9 @@ void TpetraVectorData<ST, LO, GO, NT>::getValuesByLocalID(
     auto tVec = this->getTpetraVector();
     AMP_INSIST( tVec->getNumVectors() == 1, "Only single TpetraVectors supported" );
     auto data = tVec->getData();
-    for ( size_t i = 0; i != N; i++ )
+    for ( size_t i = 0; i != N; i++ ) {
         vals[i] = data[indices[i]];
+    }
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

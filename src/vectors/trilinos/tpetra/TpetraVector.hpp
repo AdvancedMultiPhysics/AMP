@@ -68,6 +68,7 @@ wrapAMPVec( std::shared_ptr<Vector> vec, const Teuchos::RCP<const Tpetra::Map<LO
         // wrap into view, then into dual_view with duplicates
         // this gets us a shallow copy while still satisfying the Tpetra interface
         const LO localSize = vec->getLocalSize();
+        AMP_ASSERT( localSize == static_cast<LO>( map->getLocalNumElements() ) );
         ViewType wrap_buf( ptr, localSize );
         DualViewType dv( wrap_buf, wrap_buf );
 

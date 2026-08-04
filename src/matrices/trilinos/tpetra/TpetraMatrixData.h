@@ -38,7 +38,7 @@ protected:
 
     /** \brief Row map for the Tpetra_CrsMatrix, same as range map
      */
-    Teuchos::RCP<Tpetra::Map<LO, GO, NT>> d_RowMap;
+    Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> d_RowMap;
 
     /** \brief Domain map for the Tpetra_CrsMatrix, like the column map without ghosts
      */
