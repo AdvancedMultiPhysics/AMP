@@ -260,8 +260,8 @@ auto transpose_aggregates( const T &agg, I fine_size )
     return aggt;
 }
 
-template<typename T>
-std::vector<size_t> argsort( const std::vector<T> &array )
+template<class T, class A>
+std::vector<size_t> argsort( const std::vector<T, A> &array )
 {
     std::vector<size_t> indices( array.size() );
     std::iota( indices.begin(), indices.end(), 0 );
