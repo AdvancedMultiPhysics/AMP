@@ -1,6 +1,7 @@
 #ifndef included_AMP_AMG_Aggregation_hpp
 #define included_AMP_AMG_Aggregation_hpp
 
+#include <algorithm>
 #include <fstream>
 #include <numeric>
 #include <optional>
@@ -371,10 +372,13 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
                 static_cast<ext_t>( comm.sumScan( aggregates.size() ) - aggregates.size() );
             coarse_mat.diag_extents = { local_offset,
                                         local_offset + static_cast<ext_t>( aggregates.size() ) };
-            for ( std::size_t i = 0; i < aggt.diag.size(); ++i )
-                aggt.diag[i] = ( aggregatesT[i] == AggregationFlags::ineligible ) ?
-                                   AggregationFlags::ineligible :
-                                   aggregatesT[i] + local_offset;
+            const auto ineligible = static_cast<lidx_t>( AggregationFlags::ineligible );
+            for ( std::size_t i = 0; i < aggt.diag.size(); ++i ) {
+                const auto aggregate = aggregatesT[i];
+                aggt.diag[i]         = ( aggregate == ineligible ) ?
+                                           static_cast<gidx_t>( ineligible ) :
+                                           static_cast<gidx_t>( aggregate + local_offset );
+            }
 
 
             vec->putRawData( aggt.diag.data() );

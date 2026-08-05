@@ -8,6 +8,7 @@
 #include "AMP/utils/device/Device.h"
 #include "AMP/vectors/data/GhostDataHelper.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include "ProfilerApp.h"
