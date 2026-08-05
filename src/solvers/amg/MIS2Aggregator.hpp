@@ -356,8 +356,11 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     auto worklist       = A_diag->makeLidxArray( A_nrows );
     lidx_t worklist_len = A_nrows;
     AMP::Utilities::Algorithms::fill_n( agg_size.get(), A_nrows, -1, Config::mem_loc, stream );
-    AMP::Utilities::Algorithms::fill_n(
-        agg_root_ids.get(), A_nrows, AggregationFlags::eligible, Config::mem_loc, stream );
+    AMP::Utilities::Algorithms::fill_n( agg_root_ids.get(),
+                                        A_nrows,
+                                        static_cast<int>( AggregationFlags::eligible ),
+                                        Config::mem_loc,
+                                        stream );
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
     {
