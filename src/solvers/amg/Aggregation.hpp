@@ -372,7 +372,7 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
                 static_cast<ext_t>( comm.sumScan( aggregates.size() ) - aggregates.size() );
             coarse_mat.diag_extents = { local_offset,
                                         local_offset + static_cast<ext_t>( aggregates.size() ) };
-            const auto ineligible = static_cast<lidx_t>( AggregationFlags::ineligible );
+            const auto ineligible   = static_cast<lidx_t>( AggregationFlags::ineligible );
             for ( std::size_t i = 0; i < aggt.diag.size(); ++i ) {
                 const auto aggregate = aggregatesT[i];
                 aggt.diag[i]         = ( aggregate == ineligible ) ?
