@@ -244,76 +244,6 @@ void TpetraMatrixData<ST, LO, GO, NT>::createValuesByGlobalID( size_t row,
     }
 }
 
-/********************************************************
- * setOtherData                                          *
- ********************************************************/
-template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixData<ST, LO, GO, NT>::setOtherData()
-{
-    AMP_MPI myComm = d_pParameters->getComm();
-    auto ndxLen    = d_OtherData.size();
-    auto totNdxLen = myComm.sumReduce( ndxLen );
-    if ( totNdxLen == 0 ) {
-        return;
-    }
-    size_t dataLen = 0;
-    auto cur_row   = d_OtherData.begin();
-    while ( cur_row != d_OtherData.end() ) {
-        dataLen += cur_row->second.size();
-        ++cur_row;
-    }
-    auto rows   = new size_t[dataLen + 1]; // Add one to have the new work
-    auto cols   = new size_t[dataLen + 1];
-    auto data   = new ST[dataLen + 1];
-    int cur_ptr = 0;
-    cur_row     = d_OtherData.begin();
-    while ( cur_row != d_OtherData.end() ) {
-        auto cur_elem = cur_row->second.begin();
-        while ( cur_elem != cur_row->second.end() ) {
-            rows[cur_ptr] = cur_row->first;
-            cols[cur_ptr] = cur_elem->first;
-            data[cur_ptr] = cur_elem->second;
-            ++cur_ptr;
-            ++cur_elem;
-        }
-        ++cur_row;
-    }
-
-    const auto totDataLen = myComm.sumReduce( dataLen );
-
-    auto params     = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
-    auto MyFirstRow = params->getLeftDOFManager()->beginDOF();
-    auto MyEndRow   = params->getLeftDOFManager()->endDOF();
-
-    auto aggregateRows = new decltype( MyFirstRow )[totDataLen];
-    auto aggregateCols = new decltype( MyFirstRow )[totDataLen];
-    auto aggregateData = new ST[totDataLen];
-
-    myComm.allGather( rows, dataLen, aggregateRows );
-    myComm.allGather( cols, dataLen, aggregateCols );
-    myComm.allGather( data, dataLen, aggregateData );
-
-    AMP_ASSERT( params );
-    for ( size_t i = 0; i != totDataLen; i++ ) {
-        if ( ( aggregateRows[i] >= MyFirstRow ) && ( aggregateRows[i] < MyEndRow ) ) {
-            setValuesByGlobalID( 1u,
-                                 1u,
-                                 (size_t *) &aggregateRows[i],
-                                 (size_t *) &aggregateCols[i],
-                                 &aggregateData[i],
-                                 getTypeID<ST>() );
-        }
-    }
-
-    d_OtherData.clear();
-    delete[] rows;
-    delete[] cols;
-    delete[] data;
-    delete[] aggregateRows;
-    delete[] aggregateCols;
-    delete[] aggregateData;
-}
-
 template<typename ST, typename LO, typename GO, typename NT>
 std::shared_ptr<Discretization::DOFManager>
 TpetraMatrixData<ST, LO, GO, NT>::getRightDOFManager() const
@@ -399,25 +329,21 @@ void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID( size_t num_rows,
                                                             const void *vals,
                                                             const typeID &id )
 {
-    // NOTE: this routine assumes the same number of cols per row!!!
-    // This has to be fixed in ALL AMP matrix interfaces
+    AMP_INSIST( d_tpetraMatrix->isFillActive(),
+                "TpetraMatrixData::addValuesByGlobalID matrix modifications must be enabled" );
+
+    AMP_INSIST( id == AMP::getTypeID<ST>(),
+                "TpetraMatrixData::addValuesByGlobalID Must match scalar type" );
+
     std::vector<GO> tpetra_cols( num_cols );
     std::copy( cols, cols + num_cols, tpetra_cols.begin() );
+    const ST *values = reinterpret_cast<const ST *>( vals );
 
-    if ( id == getTypeID<ST>() ) {
-
-        for ( size_t i = 0; i != num_rows; i++ ) {
-
-            std::vector<ST> row_vals;
-            const ST *values = reinterpret_cast<const ST *>( vals );
-
-            auto nvals = d_tpetraMatrix->sumIntoGlobalValues(
-                rows[i], num_cols, values + num_cols * i, tpetra_cols.data() );
-            AMP_ASSERT( nvals == static_cast<LO>( num_cols ) );
-        }
-
-    } else {
-        AMP_ERROR( "Conversion not supported yet" );
+    for ( size_t i = 0; i != num_rows; i++ ) {
+        d_tpetraMatrix->sumIntoGlobalValues( static_cast<GO>( rows[i] ),
+                                             static_cast<LO>( num_cols ),
+                                             values + i * num_cols,
+                                             tpetra_cols.data() );
     }
 }
 
@@ -429,45 +355,21 @@ void TpetraMatrixData<ST, LO, GO, NT>::setValuesByGlobalID( size_t num_rows,
                                                             const void *vals,
                                                             const typeID &id )
 {
-    // NOTE: this routine assumes the same number of cols per row!!!
-    // This has to be fixed in ALL AMP matrix interfaces
+    AMP_INSIST( d_tpetraMatrix->isFillActive(),
+                "TpetraMatrixData::setValuesByGlobalID matrix modifications must be enabled" );
+
+    AMP_INSIST( id == AMP::getTypeID<ST>(),
+                "TpetraMatrixData::setValuesByGlobalID Must match scalar type" );
+
     std::vector<GO> tpetra_cols( num_cols );
     std::copy( cols, cols + num_cols, tpetra_cols.begin() );
-    auto params = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
-    AMP_ASSERT( params );
+    const ST *values = reinterpret_cast<const ST *>( vals );
 
-    size_t MyFirstRow = params->getLeftDOFManager()->beginDOF();
-    size_t MyEndRow   = params->getLeftDOFManager()->endDOF();
-    if ( id == getTypeID<double>() ) {
-
-        for ( size_t i = 0; i != num_rows; i++ ) {
-
-            std::vector<ST> row_vals;
-            ST *values;
-            if constexpr ( std::is_same_v<double, ST> ) {
-                const auto array_dptr = reinterpret_cast<const ST *>( vals );
-                values                = const_cast<ST *>( &array_dptr[num_cols * i] );
-            } else {
-                auto incoming_values = reinterpret_cast<const double *>( vals );
-                row_vals.resize( num_cols );
-                std::transform( &incoming_values[num_cols * i],
-                                &incoming_values[num_cols * i] + num_cols,
-                                row_vals.begin(),
-                                []( double c ) -> ST { return c; } );
-                values = row_vals.data();
-            }
-
-            auto nvals = d_tpetraMatrix->replaceGlobalValues(
-                rows[i], num_cols, values + num_cols * i, tpetra_cols.data() );
-            AMP_ASSERT( nvals == static_cast<LO>( num_cols ) );
-            if ( rows[i] < MyFirstRow || rows[i] >= MyEndRow ) {
-                for ( size_t j = 0; j != num_cols; j++ ) {
-                    d_OtherData[rows[i]][cols[j]] = static_cast<ST>( values[num_cols * i + j] );
-                }
-            }
-        }
-    } else {
-        AMP_ERROR( "Conversion not supported yet" );
+    for ( size_t i = 0; i != num_rows; i++ ) {
+        d_tpetraMatrix->replaceGlobalValues( static_cast<GO>( rows[i] ),
+                                             static_cast<LO>( num_cols ),
+                                             values + i * num_cols,
+                                             tpetra_cols.data() );
     }
 }
 
@@ -646,8 +548,8 @@ std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row )
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::makeConsistent( AMP::LinearAlgebra::ScatterType )
 {
-    setOtherData();
-    fillComplete();
+    if ( d_tpetraMatrix->isFillActive() )
+      fillComplete();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>

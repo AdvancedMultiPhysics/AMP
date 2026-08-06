@@ -154,10 +154,10 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::setIdentity( MatrixData &A )
 {
     // this is wrong as is as it assumes where the diagonal entries reside
     zero( A );
-    int MyFirstRow = A.getLeftDOFManager()->beginDOF();
-    int MyEndRow   = A.getLeftDOFManager()->endDOF();
-    double one     = 1.0;
-    for ( int i = MyFirstRow; i != MyEndRow; i++ ) {
+    const auto MyFirstRow = static_cast<GO>( A.getLeftDOFManager()->beginDOF() );
+    const auto MyEndRow   = static_cast<GO>( A.getLeftDOFManager()->endDOF() );
+    const ST one          = 1.0;
+    for ( GO i = MyFirstRow; i != MyEndRow; i++ ) {
         VerifyTpetraReturn(
             getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).replaceGlobalValues( i, 1, &one, &i ),
             "setValuesByGlobalID" );
@@ -236,7 +236,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSums( MatrixData const &A,
     auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
 
     // Get the current row's data
-    for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
+    for ( LO row = 0; row < static_cast<LO>( A.numLocalRows() ); ++row ) {
         auto numCols = matrix.getNumEntriesInLocalRow( row );
         std::vector<LO> colInds( numCols );
         std::vector<ST> vals( numCols );
@@ -267,7 +267,7 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::getRowSumsAbsolute( MatrixData cons
     auto &matrix = getTpetra_CrsMatrix<ST, LO, GO, NT>( A );
 
     // Get the current row's data
-    for ( size_t row = 0; row < A.numLocalRows(); ++row ) {
+    for ( LO row = 0; row < static_cast<LO>( A.numLocalRows() ); ++row ) {
         auto numCols = matrix.getNumEntriesInLocalRow( row );
         std::vector<LO> colInds( numCols );
         std::vector<ST> vals( numCols );
