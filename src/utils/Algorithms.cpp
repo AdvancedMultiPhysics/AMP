@@ -60,6 +60,8 @@ INST_COPYCAST( long long, long long )
 INST_COPYCAST( double, double )
 INST_COPYCAST( float, float )
 
+INST_COPYCAST( unsigned long, int )
+INST_COPYCAST( int, unsigned long )
 INST_COPYCAST( unsigned long, long long )
 INST_COPYCAST( unsigned long long, long long )
 INST_COPYCAST( long long, unsigned long )

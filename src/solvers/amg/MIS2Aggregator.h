@@ -62,14 +62,6 @@ struct MIS2Aggregator : Aggregator {
     // similarly all OUT are marked with max value
     static constexpr uint64_t IN  = std::numeric_limits<uint64_t>::max();
     static constexpr uint64_t OUT = 0;
-
-    // Aggregate IDs are signed, where nonegative values are the
-    // assigned aggregate determined by this process.
-    // Negative values are used as semaphores for two cases,
-    // unaggregated points valid for assignment, and invalid
-    // points that are not to be aggregated at all
-    static constexpr int UNASSIGNED = -1;
-    static constexpr int INVALID    = -2;
 };
 
 } // namespace AMP::Solver::AMG
