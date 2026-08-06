@@ -282,6 +282,7 @@ ADD_AMP_TEST( testSolversWithRhsOptions )
 ADD_AMP_TEST_1_2_4( testLinearSolvers-DiffusionFD GPU )
 ADD_AMP_TEST_1_2_4( testLinearSolvers-PseudoLaplacian GPU )
 
+SET_DEVICE_COMPILER( testLinearSolvers-ImplicitRAP.cpp )
 ADD_AMP_TEST( testLinearSolvers-ImplicitRAP PROCS 1 )
 
 IF ( USE_LIBMESH )
