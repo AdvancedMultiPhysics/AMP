@@ -333,6 +333,7 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
                      const aggregateT_type<Config> &aggregatesT )
 {
     PROFILE( "AMG::coarsen_matrix" );
+    using lidx_t   = typename Config::gidx_t;
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
@@ -349,9 +350,6 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
     size_rowptr( coarse_mat.store.diag() );
     if ( fine.has_offd() )
         size_rowptr( coarse_mat.store.offd() );
-
-    // using gidx_t = typename Config::gidx_t;
-    using gidx_t = double;
 
     // maps local column ids from fine matrix to global column ids in coarse matrix
     struct {

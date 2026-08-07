@@ -1,8 +1,7 @@
 variables:
   PROJECT: AMP
   GROUP: nerd-project
-  DEVOPS_CI_REF: rberger/next-upstream
 include:
   - project: 'xcap/oss/solvers/dev-ops/ci'
-    ref: rberger/next-upstream
+    ref: master
     file: 'amp-darwin.yml'
