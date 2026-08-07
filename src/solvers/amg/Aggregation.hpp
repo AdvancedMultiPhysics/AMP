@@ -333,7 +333,6 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
                      const aggregateT_type<Config> &aggregatesT )
 {
     PROFILE( "AMG::coarsen_matrix" );
-    using gidx_t   = typename Config::gidx_t;
     using lidx_t   = typename Config::lidx_t;
     using scalar_t = typename Config::scalar_t;
 
@@ -350,6 +349,9 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
     size_rowptr( coarse_mat.store.diag() );
     if ( fine.has_offd() )
         size_rowptr( coarse_mat.store.offd() );
+
+    // using gidx_t = typename Config::gidx_t;
+    using gidx_t = double;
 
     // maps local column ids from fine matrix to global column ids in coarse matrix
     struct {
@@ -398,37 +400,39 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
         }();
 
 
-    auto collapse =
-        [&]( auto &cmat, auto fine_ptrs, const std::vector<gidx_t> &aggregates_transpose ) {
-            auto [rowptr, colind, values] = fine_ptrs;
-            for ( size_t rc = 0; rc < aggregates.size(); ++rc ) {
-                // coarse (global) column index -> aggregated value (nnz in this coarse row)
-                std::vector<lidx_t> agg_indices;
-                std::vector<scalar_t> agg_values;
-                [&]( auto &...v ) { ( v.reserve( aggregates[rc].size() ), ... ); }( agg_indices,
-                                                                                    agg_values );
-                for ( auto r : aggregates[rc] ) {
-                    for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
-                        auto ind = aggregates_transpose[colind[off]];
-                        if ( ind != AggregationFlags::ineligible ) { // check if in an aggregate
-                            agg_indices.push_back( ind );
-                            agg_values.push_back( values[off] );
-                        }
+    auto collapse = [&]( auto &cmat,
+                         auto fine_ptrs,
+                         const std::vector<gidx_t> &aggregates_transpose ) {
+        auto [rowptr, colind, values] = fine_ptrs;
+        for ( size_t rc = 0; rc < aggregates.size(); ++rc ) {
+            // coarse (global) column index -> aggregated value (nnz in this coarse row)
+            std::vector<lidx_t> agg_indices;
+            std::vector<scalar_t> agg_values;
+            [&]( auto &...v ) { ( v.reserve( aggregates[rc].size() ), ... ); }( agg_indices,
+                                                                                agg_values );
+            for ( auto r : aggregates[rc] ) {
+                for ( auto off = rowptr[r]; off < rowptr[r + 1]; ++off ) {
+                    auto ind = aggregates_transpose[colind[off]];
+                    if ( ind != static_cast<gidx_t>(
+                                    AggregationFlags::ineligible ) ) { // check if in an aggregate
+                        agg_indices.push_back( ind );
+                        agg_values.push_back( values[off] );
                     }
                 }
-
-                auto ind = argsort( agg_indices );
-                for ( std::size_t i = 0; i < ind.size(); ++i ) {
-                    auto cur_val = agg_values[ind[i]];
-                    auto cur_ind = agg_indices[ind[i]];
-                    while ( i < ind.size() - 1 && agg_indices[ind[i + 1]] == cur_ind )
-                        cur_val += agg_values[ind[++i]];
-                    cmat.colind.push_back( cur_ind );
-                    cmat.values.push_back( cur_val );
-                }
-                cmat.rowptr[rc + 1] = cmat.colind.size();
             }
-        };
+
+            auto ind = argsort( agg_indices );
+            for ( std::size_t i = 0; i < ind.size(); ++i ) {
+                auto cur_val = agg_values[ind[i]];
+                auto cur_ind = agg_indices[ind[i]];
+                while ( i < ind.size() - 1 && agg_indices[ind[i + 1]] == cur_ind )
+                    cur_val += agg_values[ind[++i]];
+                cmat.colind.push_back( cur_ind );
+                cmat.values.push_back( cur_val );
+            }
+            cmat.rowptr[rc + 1] = cmat.colind.size();
+        }
+    };
 
     collapse( coarse_mat.store.diag(), fine.diag(), aggt.diag );
     if ( fine.has_offd() ) {
