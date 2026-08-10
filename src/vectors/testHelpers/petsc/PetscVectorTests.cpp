@@ -25,7 +25,11 @@ namespace AMP::LinearAlgebra {
 void checkPetscError( AMP::UnitTest *ut, PetscErrorCode i )
 {
     if ( i ) {
+#if ( PETSC_VERSION_GE( 3, 25, 0 ) )
+        const char *ans;
+#else
         char *ans;
+#endif
         PetscErrorMessage( i, nullptr, &ans );
         ut->failure( ans );
         delete[] ans;

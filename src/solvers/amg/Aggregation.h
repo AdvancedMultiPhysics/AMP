@@ -29,6 +29,8 @@ struct PairwiseAggregator : Aggregator {
     template<class Config>
     int assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>> A, int *agg_ids );
 
+    const PairwiseCoarsenSettings &settings() const { return d_settings; }
+
 private:
     PairwiseCoarsenSettings d_settings;
 };

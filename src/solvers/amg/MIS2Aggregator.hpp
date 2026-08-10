@@ -228,14 +228,14 @@ AMP_FUNCTION_HD void agg_from_row( const lidx_t row,
                                    lidx_t *agg_size,
                                    lidx_t *agg_ids_out )
 {
-    if ( labels[row] != MIS2Aggregator::IN || agg_ids_curr[row] != MIS2Aggregator::UNASSIGNED ) {
+    if ( labels[row] != MIS2Aggregator::IN || agg_ids_curr[row] != AggregationFlags::eligible ) {
         // not (valid) root node, nothing to do
         return;
     }
     // have root node, push new aggregate and set ids
     agg_size[row] = 0;
     for ( lidx_t c = row_start[row]; c < row_start[row + 1]; ++c ) {
-        if ( agg_ids_curr[cols_loc[c]] != MIS2Aggregator::UNASSIGNED ) {
+        if ( agg_ids_curr[cols_loc[c]] != AggregationFlags::eligible ) {
             continue;
         }
         if ( c > row_start[row] ) {
@@ -254,7 +254,7 @@ AMP_FUNCTION_HD void grow_agg( const lidx_t row,
                                lidx_t *agg_size,
                                lidx_t *agg_ids )
 {
-    if ( agg_ids[row] != MIS2Aggregator::UNASSIGNED ) {
+    if ( agg_ids[row] != AggregationFlags::eligible ) {
         // already aggregated or invalid, nothing to do
         return;
     }
@@ -265,7 +265,7 @@ AMP_FUNCTION_HD void grow_agg( const lidx_t row,
     for ( lidx_t c = rs; c < re; ++c ) {
         const auto agg = agg_ids[cols_loc[c]];
         // only consider nbrs that are aggregated
-        if ( agg == MIS2Aggregator::UNASSIGNED || agg == MIS2Aggregator::INVALID ) {
+        if ( agg == AggregationFlags::eligible || agg == AggregationFlags::ineligible ) {
             continue;
         }
         if ( agg_size[agg] < small_agg_size ) {
@@ -355,9 +355,12 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
     auto agg_root_ids   = A_diag->template sharedArrayBuilder<int>( A_nrows );
     auto worklist       = A_diag->makeLidxArray( A_nrows );
     lidx_t worklist_len = A_nrows;
-    Utilities::Algorithms::fill_n( agg_size.get(), A_nrows, -1, Config::mem_loc, stream );
-    Utilities::Algorithms::fill_n(
-        agg_root_ids.get(), A_nrows, UNASSIGNED, Config::mem_loc, stream );
+    AMP::Utilities::Algorithms::fill_n( agg_size.get(), A_nrows, -1, Config::mem_loc, stream );
+    AMP::Utilities::Algorithms::fill_n( agg_root_ids.get(),
+                                        A_nrows,
+                                        static_cast<int>( AggregationFlags::eligible ),
+                                        Config::mem_loc,
+                                        stream );
 
     // Initialize ids to either unassigned (default) or invalid (isolated)
     {
@@ -386,9 +389,9 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
             [Am_rs, not_diag_dom, agg_root_ids_ptr] AMP_FUNCTION_HD( const lidx_t row ) -> void {
             const auto rs = Am_rs[row], re = Am_rs[row + 1];
             if ( re - rs > 1 && not_diag_dom( row ) ) {
-                agg_root_ids_ptr[row] = MIS2Aggregator::UNASSIGNED;
+                agg_root_ids_ptr[row] = AggregationFlags::eligible;
             } else {
-                agg_root_ids_ptr[row] = MIS2Aggregator::INVALID;
+                agg_root_ids_ptr[row] = AggregationFlags::ineligible;
             }
         };
         if constexpr ( host_exec ) {
@@ -405,12 +408,12 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         }
     }
 
-    // initialize worklist to all UNASSIGNED rows
+    // initialize worklist to all AggregationFlags::eligible rows
     {
         if constexpr ( host_exec ) {
             worklist_len = 0;
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
-                if ( agg_root_ids[row] == UNASSIGNED ) {
+                if ( agg_root_ids[row] == AggregationFlags::eligible ) {
                     worklist[worklist_len++] = row;
                 }
             }
@@ -423,14 +426,14 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                                  thrust::make_counting_iterator( A_nrows ),
                                  worklist.get(),
                                  [agg_root_ids_ptr] __device__( const lidx_t n ) -> bool {
-                                     return ( agg_root_ids_ptr[n] == UNASSIGNED );
+                                     return ( agg_root_ids_ptr[n] == AggregationFlags::eligible );
                                  } );
             worklist_len = static_cast<lidx_t>( new_end - worklist.get() );
 #endif
         }
     }
 
-    // First pass of MIS2 classification, ignores INVALID nodes
+    // First pass of MIS2 classification, ignores AggregationFlags::ineligible nodes
     classifyVertices<Config>(
         A_masked, A->numGlobalRows(), worklist.get(), worklist_len, Tv.get(), Tv_hat.get() );
 
@@ -461,12 +464,12 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         }
     }
 
-    // re-initialize worklist to all UNASSIGNED rows
+    // re-initialize worklist to all AggregationFlags::eligible rows
     {
         if constexpr ( host_exec ) {
             worklist_len = 0;
             for ( lidx_t row = 0; row < A_nrows; ++row ) {
-                if ( agg_root_ids[row] == UNASSIGNED ) {
+                if ( agg_root_ids[row] == AggregationFlags::eligible ) {
                     worklist[worklist_len++] = row;
                 }
             }
@@ -479,7 +482,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                                  thrust::make_counting_iterator( A_nrows ),
                                  worklist.get(),
                                  [agg_root_ids_ptr] __device__( const lidx_t n ) -> bool {
-                                     return ( agg_root_ids_ptr[n] == UNASSIGNED );
+                                     return ( agg_root_ids_ptr[n] == AggregationFlags::eligible );
                                  } );
             worklist_len = static_cast<lidx_t>( new_end - worklist.get() );
 #endif
@@ -559,19 +562,24 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
         const auto nunq =
             Utilities::Algorithms::unique( unq_root_ids.get(), A_nrows, Config::mem_loc, stream );
         // need to check first two entries of unique'd array
-        // if we have UNDECIDED or INVALID need to decrement agg count
+        // if we have UNDECIDED or ineligible need to decrement agg count
         lidx_t first_entries[2];
-        Utilities::Algorithms::copy_n( first_entries,
-                                       Utilities::MemoryType::host,
-                                       unq_root_ids.get(),
-                                       Config::mem_loc,
-                                       2,
-                                       stream );
-        const int dec_inv = ( first_entries[0] == INVALID || first_entries[1] == INVALID ) ? 1 : 0;
-        const int dec_und =
-            ( first_entries[0] == UNASSIGNED || first_entries[1] == UNASSIGNED ) ? 1 : 0;
-        num_dec = dec_inv + dec_und;
-        num_agg = static_cast<int>( nunq ) - num_dec;
+        AMP::Utilities::Algorithms::copy_n( first_entries,
+                                            AMP::Utilities::MemoryType::host,
+                                            unq_root_ids.get(),
+                                            Config::mem_loc,
+                                            2,
+                                            stream );
+        const int dec_inv = ( first_entries[0] == AggregationFlags::ineligible ||
+                              first_entries[1] == AggregationFlags::ineligible ) ?
+                                1 :
+                                0;
+        const int dec_und = ( first_entries[0] == AggregationFlags::eligible ||
+                              first_entries[1] == AggregationFlags::eligible ) ?
+                                1 :
+                                0;
+        num_dec           = dec_inv + dec_und;
+        num_agg           = static_cast<int>( nunq ) - num_dec;
     }
 
     // finally, use compacted list of uniques to convert root node labels
@@ -595,7 +603,7 @@ int MIS2Aggregator::assignLocalAggregates( std::shared_ptr<LinearAlgebra::CSRMat
                                  agg_root_ids.get(),
                                  agg_root_ids.get() + A_nrows,
                                  agg_ids );
-            // subtract num_dec from all agg_ids so that INVALID and UNDECIDED
+            // subtract num_dec from all agg_ids so that ineligible and UNDECIDED
             // entries remain ignored. Can not do the lower_bound on an offset
             // (&unq_root_ids[num_dec]) because INV/UNDEC would get added to
             // the agg with smallest root id, instead of being ignored

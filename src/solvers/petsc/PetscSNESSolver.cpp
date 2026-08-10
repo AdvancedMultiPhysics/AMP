@@ -285,7 +285,7 @@ void PetscSNESSolver::initializePetscObjects()
             d_SNESSolver,
             (PetscErrorCode( * )( SNES, PetscInt, PetscReal, void * )) SNESMonitorDefault,
             vf,
-            (PetscErrorCode( * )( void ** )) PetscViewerAndFormatDestroy ) );
+            (PetscCtxDestroyFn *) PetscViewerAndFormatDestroy ) );
     }
 
     if ( d_bPrintLinearResiduals ) {
@@ -297,7 +297,7 @@ void PetscSNESSolver::initializePetscObjects()
             kspSolver,
             (PetscErrorCode( * )( KSP, PetscInt, PetscReal, void * )) KSPMonitorResidual,
             vf,
-            (PetscErrorCode( * )( void ** )) PetscViewerAndFormatDestroy ) );
+            (PetscCtxDestroyFn *) PetscViewerAndFormatDestroy ) );
     }
 
     if ( d_PetscMonitor ) {
@@ -736,6 +736,12 @@ void PetscSNESSolver::setConvergenceStatus( void )
 {
     checkErr( SNESGetConvergedReason( d_SNESSolver, &d_SNES_completion_code ) );
 
+#if ( PETSC_VERSION_GE( 3, 25, 0 ) )
+    const int diverged_nan_code = SNES_DIVERGED_FUNCTION_NANORINF;
+#else
+    const int diverged_nan_code = SNES_DIVERGED_FNORM_NAN;
+#endif
+
     switch ( (int) d_SNES_completion_code ) {
     case SNES_CONVERGED_FNORM_ABS:
         d_ConvergenceStatus = SolverStatus::ConvergedOnAbsTol;
@@ -749,7 +755,7 @@ void PetscSNESSolver::setConvergenceStatus( void )
     case SNES_DIVERGED_FUNCTION_COUNT:
         d_ConvergenceStatus = SolverStatus::DivergedFunctionCount;
         break;
-    case SNES_DIVERGED_FNORM_NAN:
+    case diverged_nan_code:
         d_ConvergenceStatus = SolverStatus::DivergedOnNan;
         break;
     case SNES_DIVERGED_MAX_IT:
