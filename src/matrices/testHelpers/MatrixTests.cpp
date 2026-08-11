@@ -606,23 +606,6 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
     for ( auto sum : *rowSums )
         pass = pass && fabs( sum ) <= 1e-14;
 
-    /*bool pass = true;
-    it        = mesh->getIterator( AMP::Mesh::GeomType::Vertex, 0 );
-    end       = it.end();
-    std::vector<size_t> cols;
-    std::vector<double> values;
-    while ( it != end ) {
-        dofmap->getDOFs( it->globalID(), dofs );
-        for ( auto &dof : dofs ) {
-            matrix->getRowByGlobalID( dof, cols, values );
-            double sum = 0.0;
-            for ( auto &value : values )
-                sum += value;
-            if ( fabs( sum ) > 1e-14 || cols.empty() )
-                pass = false;
-        }
-        ++it;
-    }*/
     utils->pass_fail( pass, "VerifyAddElementNode " + matrix->type() );
 }
 
@@ -631,7 +614,7 @@ void test_matrix_loop( AMP::UnitTest &ut, std::shared_ptr<MatrixTests> tests )
 {
     tests->InstantiateMatrix( &ut );
     tests->VerifyGetSetValuesMatrix( &ut );
-    //    tests->VerifyAXPYMatrix( &ut );
+    // tests->VerifyAXPYMatrix( &ut );
     tests->VerifyCopyMatrix( &ut );
     tests->VerifyScaleMatrix( &ut );
     tests->VerifyGetLeftRightVector( &ut );

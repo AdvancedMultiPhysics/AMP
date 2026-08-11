@@ -106,10 +106,6 @@ public:
     static std::shared_ptr<TpetraMatrixData<ST, LO, GO, NT>>
     createView( std::shared_ptr<MatrixData> p );
 
-    /** \brief  A call-through to Tpetra_CrsMatrix fillComplete
-     */
-    void fillComplete();
-
     void createValuesByGlobalID( size_t, const std::vector<size_t> & );
     void addValuesByGlobalID( size_t num_rows,
                               size_t num_cols,

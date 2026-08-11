@@ -215,13 +215,6 @@ TpetraMatrixData<ST, LO, GO, NT>::createView( std::shared_ptr<MatrixData> in_mat
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
-void TpetraMatrixData<ST, LO, GO, NT>::fillComplete()
-{
-    if ( d_tpetraMatrix->isFillActive() )
-        d_tpetraMatrix->fillComplete( d_DomainMap, d_RowMap );
-}
-
-template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::createValuesByGlobalID( size_t row,
                                                                const std::vector<size_t> &cols )
 {
@@ -339,7 +332,21 @@ void TpetraMatrixData<ST, LO, GO, NT>::addValuesByGlobalID( size_t num_rows,
     std::copy( cols, cols + num_cols, tpetra_cols.begin() );
     const ST *values = reinterpret_cast<const ST *>( vals );
 
+    auto params             = std::dynamic_pointer_cast<MatrixParameters>( d_pParameters );
+    const auto dofmStartRow = params->getLeftDOFManager()->beginDOF();
+    const auto dofmEndRow   = params->getLeftDOFManager()->endDOF();
+    const auto startRow = static_cast<size_t>( d_tpetraMatrix->getRangeMap()->getMinGlobalIndex() );
+    const auto endRow =
+        static_cast<size_t>( d_tpetraMatrix->getRangeMap()->getMaxGlobalIndex() + 1 );
+
+    AMP_ASSERT( dofmStartRow == startRow );
+    AMP_ASSERT( dofmEndRow == endRow );
+
     for ( size_t i = 0; i != num_rows; i++ ) {
+        if ( rows[i] < startRow || rows[i] >= endRow ) {
+            AMP_WARN_ONCE( "attempting to add to non-owned row" );
+            continue;
+        }
         d_tpetraMatrix->sumIntoGlobalValues( static_cast<GO>( rows[i] ),
                                              static_cast<LO>( num_cols ),
                                              values + i * num_cols,
@@ -548,8 +555,7 @@ std::vector<size_t> TpetraMatrixData<ST, LO, GO, NT>::getColumnIDs( size_t row )
 template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::makeConsistent( AMP::LinearAlgebra::ScatterType )
 {
-    if ( d_tpetraMatrix->isFillActive() )
-      fillComplete();
+    this->disableModifications();
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
@@ -562,7 +568,7 @@ template<typename ST, typename LO, typename GO, typename NT>
 void TpetraMatrixData<ST, LO, GO, NT>::disableModifications()
 {
     if ( d_tpetraMatrix->isFillActive() )
-        d_tpetraMatrix->fillComplete();
+        d_tpetraMatrix->fillComplete( d_DomainMap, d_RowMap );
 }
 
 
