@@ -275,7 +275,7 @@ void PetscSNESSolver::initializePetscObjects()
     checkErr( SNESSetFromOptions( d_SNESSolver ) );
 
 #if PETSC_VERSION_LT( 3, 23, 0 )
-    typedef PetscCtxDestroyFn PetscErrorCode()( void * );
+    typedef PetscErrorCode ( *PetscCtxDestroyFn )( void * );
 #endif
 
     if ( d_bPrintNonlinearResiduals ) {
