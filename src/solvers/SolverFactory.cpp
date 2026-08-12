@@ -33,6 +33,7 @@ responsibility for the use of this software.
 #include "AMP/solvers/SolverStrategy.h"
 #include "AMP/solvers/SolverStrategyParameters.h"
 #include "AMP/solvers/TFQMRSolver.h"
+#include "AMP/solvers/amg/AggregationSolver.h"
 #include "AMP/solvers/amg/SASolver.h"
 #include "AMP/solvers/amg/UASolver.h"
 #include "AMP/utils/Memory.h"
@@ -149,8 +150,9 @@ void AMP::FactoryStrategy<AMP::Solver::SolverStrategy,
 
     d_factories["ColumnSolver"] = ColumnSolver::createSolver;
 
-    d_factories["SASolver"] = AMG::SASolver::createSolver;
-    d_factories["UASolver"] = AMG::UASolver::createSolver;
-    d_factories["HybridGS"] = AMG::HybridGS::createSolver;
-    d_factories["JacobiL1"] = AMG::JacobiL1::createSolver;
+    d_factories["AggregationSolver"] = AMG::AggregationSolver::createSolver;
+    d_factories["SASolver"]          = AMG::SASolver::createSolver;
+    d_factories["UASolver"]          = AMG::UASolver::createSolver;
+    d_factories["HybridGS"]          = AMG::HybridGS::createSolver;
+    d_factories["JacobiL1"]          = AMG::JacobiL1::createSolver;
 }

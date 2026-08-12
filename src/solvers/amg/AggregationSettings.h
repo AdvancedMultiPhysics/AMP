@@ -39,9 +39,10 @@ struct PairwiseCoarsenSettings : CoarsenSettings {
     size_t pairwise_passes;
     PairwiseCoarsenSettings &operator=( const CoarsenSettings &other )
     {
-        strength_threshold = other.strength_threshold;
-        strength_measure   = other.strength_measure;
-        checkdd            = other.checkdd;
+        strength_threshold    = other.strength_threshold;
+        strength_measure      = other.strength_measure;
+        checkdd               = other.checkdd;
+        redist_coarsen_factor = other.redist_coarsen_factor;
         return *this;
     }
 };

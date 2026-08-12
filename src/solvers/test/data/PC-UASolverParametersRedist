@@ -9,7 +9,7 @@ Preconditioner{
   agg_type = "pairwise"
   min_coarse_global = 10
   min_coarse_local = 20000
-  strong_threshold = 0.5
+  strength_threshold = 0.25
   pairwise_passes = 3
   pre_relaxation {
     name = "HybridGS"

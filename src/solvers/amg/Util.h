@@ -182,7 +182,7 @@ struct coarse_operator : AMP::Operator::LinearOperator {
                                   cop->matrix.diag_extents,
                                   cop->matrix.left_var,
                                   cop->matrix.right_var ) );
-        setVariables( cop->matrix.left_var, cop->matrix.right_var );
+        setVariables( cop->matrix.right_var, cop->matrix.left_var );
     }
 
     std::shared_ptr<LinearAlgebra::CSRMatrix<Config>>
