@@ -563,41 +563,16 @@ void MatrixTests::VerifyAddElementNode( AMP::UnitTest *utils )
     matrix->enableModifications();
 
     // Fill all the node-node entries
-    auto it  = mesh->getIterator( AMP::Mesh::GeomType::Cell, 0 );
-    auto end = it.end();
-    std::vector<size_t> dofs;
-    dofs.reserve( 40 );
-    while ( it != end ) {
-        auto nodes = it->getElements( AMP::Mesh::GeomType::Vertex );
-        dofs.clear();
-        for ( auto &node : nodes ) {
-            std::vector<size_t> dofsNode;
-            dofmap->getDOFs( node.globalID(), dofsNode );
-            for ( auto &elem : dofsNode )
-                dofs.push_back( elem );
+    for ( size_t row = dofmap->beginDOF(); row < dofmap->endDOF(); ++row ) {
+        auto elem_id  = dofmap->getElementID( row );
+        auto row_dofs = dofmap->getRowDOFs( elem_id );
+        for ( auto &col : row_dofs ) {
+            double val = -1.0;
+            if ( row == col )
+                val = static_cast<double>( row_dofs.size() - 1 );
+            matrix->addValueByGlobalID( row, col, val );
         }
-
-        for ( size_t r = 0; r < dofs.size(); r++ ) {
-            for ( size_t c = 0; c < dofs.size(); c++ ) {
-                double val = -1.0;
-                if ( r == c )
-                    val = dofs.size() - 1;
-                matrix->addValueByGlobalID( dofs[r], dofs[c], val );
-            }
-        }
-        ++it;
     }
-    matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-
-    // Call makeConsistent a second time
-    // This can illustrate a bug where the fill pattern of remote data has changed
-    //   and epetra maintains the list of remote rows, but updates the columns
-    //   resulting in an access error using the std::vector
-    // Another example of this bug can be found in extra_tests/test_Epetra_FECrsMatrix_bug
-    // Note: there is no point in catching this bug with a try catch since a failure
-    //   will cause asymettric behavior that create a deadlock with one process waiting
-    //   for the failed process
-    // The current workaround is to disable the GLIBCXX_DEBUG flags?
     matrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
 
     // Check the values

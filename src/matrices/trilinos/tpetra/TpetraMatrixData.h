@@ -48,13 +48,6 @@ protected:
      */
     Teuchos::RCP<const Tpetra::Map<LO, GO, NT>> d_ColumnMap;
 
-    //!  \f$A_{i,j}\f$ storage of off-core data
-    std::map<int, std::map<GO, ST>> d_OtherData;
-
-    //!  Update data off-core
-    void setOtherData();
-
-
     /** \brief Ensure Tpetra methods return correctly
      * \param[in] err  The return value from the method
      * \param[in] func  The name of the Tpetra method called
