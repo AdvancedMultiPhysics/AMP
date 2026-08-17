@@ -33,7 +33,6 @@ static_assert( PETSC_VERSION_GE( 3, 15, 0 ), "AMP only supports PETSc 3.15.0 or 
     #define PetscInfo PetscInfo3
 #endif
 
-
 static inline void checkErr( PetscErrorCode ierr )
 {
     AMP_INSIST( ierr == 0, "Petsc returned non-zero error code" );
@@ -266,8 +265,6 @@ void PetscSNESSolver::initializePetscObjects()
                                           d_dEWSafeguardExponent,
                                           d_dEWSafeguardDisableThreshold ) );
     } else {
-
-        //        checkErr( KSPSetTolerances( d_pKrylovSolver->getKrylovSolver(),
         checkErr( KSPSetTolerances(
             kspSolver, d_dConstantForcingTerm, PETSC_DEFAULT, PETSC_DEFAULT, PETSC_DEFAULT ) );
     }
@@ -276,6 +273,10 @@ void PetscSNESSolver::initializePetscObjects()
         SNESAppendOptionsPrefix( d_SNESSolver, d_SNESAppendOptionsPrefix.c_str() );
 
     checkErr( SNESSetFromOptions( d_SNESSolver ) );
+
+#if PETSC_VERSION_LT( 3, 23, 0 )
+    typedef PetscErrorCode( PetscCtxDestroyFn )( void ** );
+#endif
 
     if ( d_bPrintNonlinearResiduals ) {
         PetscViewerAndFormat *vf;
@@ -293,7 +294,6 @@ void PetscSNESSolver::initializePetscObjects()
         checkErr(
             PetscViewerAndFormatCreate( PETSC_VIEWER_STDOUT_WORLD, PETSC_VIEWER_DEFAULT, &vf ) );
         checkErr( KSPMonitorSet(
-            //            d_pKrylovSolver->getKrylovSolver(),
             kspSolver,
             (PetscErrorCode( * )( KSP, PetscInt, PetscReal, void * )) KSPMonitorResidual,
             vf,
