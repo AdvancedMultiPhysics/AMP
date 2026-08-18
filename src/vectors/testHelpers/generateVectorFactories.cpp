@@ -11,8 +11,10 @@
 
 #ifdef AMP_USE_TRILINOS
     #ifdef AMP_USE_TRILINOS_EPETRA
+DISABLE_WARNINGS
         #include "AMP/vectors/testHelpers/trilinos/epetra/EpetraVectorFactory.h"
         #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
+ENABLE_WARNINGS
     #endif
     #ifdef AMP_USE_TRILINOS_TPETRA
         #include "AMP/vectors/testHelpers/trilinos/tpetra/TpetraVectorFactory.h"

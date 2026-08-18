@@ -176,7 +176,12 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::extractDiagonal( MatrixData const &
 template<typename ST, typename LO, typename GO, typename NT>
 AMP::Scalar TpetraMatrixOperations<ST, LO, GO, NT>::LinfNorm( MatrixData const &A ) const
 {
+#if Trilinos_MAJOR_MINOR_VERSION < 160200
+    AMP_ERROR( "Not implemented" );
+    return 0;
+#else
     return getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).getNormInf();
+#endif
 }
 
 template<typename ST, typename LO, typename GO, typename NT>
