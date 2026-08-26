@@ -426,7 +426,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::mult( const typename Config::scalar
     auto out_view = WrapVector<scalar_t>( out, nRows );
 
     // pick an execution space based on memory spaces
-    const auto [device_acc, managed_exec] =
+    const auto [device_acc, all_device] =
         memoryLocationsDeviceAccessible( A->d_memory_location, in_loc, out_loc );
 
     if ( !device_acc ) {
@@ -508,11 +508,13 @@ void CSRLocalMatrixOperationsKokkos<Config>::multTranspose(
     // Wrap in/out data into Kokkos Views
     auto in_view =
         WrapVector<const scalar_t, Kokkos::MemoryTraits<Kokkos::RandomAccess>>( in, nCols );
-    auto out_view = WrapVector<scalar_t, Kokkos::MemoryTraits<Kokkos::Atomic>>( out, nColsUnq );
+    auto out_view =
+        WrapVector<scalar_t, Kokkos::MemoryTraits<Kokkos::Atomic | Kokkos::RandomAccess>>(
+            out, nColsUnq );
 
     // pick an execution space based on memory spaces
-    const auto [device_acc, managed_exec] =
-        memoryLocationsDeviceAccessible( A->d_memory_location, in_loc, out_loc );
+    const auto [device_acc, all_device] =
+        memoryLocationsDeviceAccessible( A->d_memory_location, in_loc, out_loc, true );
 
     if ( !device_acc ) {
         impl::multTranspose( A->d_acceleration_context.getKokkosExecHost(),
@@ -570,7 +572,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::scale( typename Config::scalar_t al
     // Wrap D into Kokkos View
     auto D_view = WrapVector<const scalar_t>( D, nRows );
 
-    const auto [device_acc, managed_exec] =
+    const auto [device_acc, all_device] =
         memoryLocationsDeviceAccessible( A->d_memory_location, D_loc );
 
     if ( !device_acc ) {
@@ -605,7 +607,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::scaleInv( typename Config::scalar_t
     // Wrap D into Kokkos View
     auto D_view = WrapVector<const scalar_t>( D, nRows );
 
-    const auto [device_acc, managed_exec] =
+    const auto [device_acc, all_device] =
         memoryLocationsDeviceAccessible( A->d_memory_location, D_loc );
 
     if ( !device_acc ) {
@@ -722,7 +724,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::setDiagonal( const typename Config:
     // Wrap D into Kokkos View
     auto D_view = WrapVector<const scalar_t>( D, nRows );
 
-    const auto [device_acc, managed_exec] =
+    const auto [device_acc, all_device] =
         memoryLocationsDeviceAccessible( A->d_memory_location, D_loc );
 
     if ( !device_acc ) {
@@ -789,7 +791,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::extractDiagonal(
     // Wrap D into Kokkos View
     auto D_view = WrapVector<scalar_t>( D, nRows );
 
-    const auto [device_acc, managed_exec] =
+    const auto [device_acc, all_device] =
         memoryLocationsDeviceAccessible( A->d_memory_location, D_loc );
 
     if ( !device_acc ) {
@@ -824,7 +826,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::getRowSums( std::shared_ptr<localma
     // Wrap D into Kokkos View
     auto buf_view = WrapVector<scalar_t>( buf, nRows );
 
-    const auto [device_acc, managed_exec] =
+    const auto [device_acc, all_device] =
         memoryLocationsDeviceAccessible( A->d_memory_location, buf_loc );
 
     if ( !device_acc ) {
@@ -867,7 +869,7 @@ void CSRLocalMatrixOperationsKokkos<Config>::getRowSumsAbsolute(
     // Wrap D into Kokkos View
     auto buf_view = WrapVector<scalar_t>( buf, nRows );
 
-    const auto [device_acc, managed_exec] =
+    const auto [device_acc, all_device] =
         memoryLocationsDeviceAccessible( A->d_memory_location, buf_loc );
 
     if ( !device_acc ) {
