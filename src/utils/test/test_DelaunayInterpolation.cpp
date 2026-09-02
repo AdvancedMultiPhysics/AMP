@@ -489,7 +489,7 @@ void testInterpolation( AMP::UnitTest &ut,
     auto order = new size_t[N1];
     for ( size_t i = 0; i < N1; i++ )
         order[i] = i;
-    std::shuffle( order, &order[N1], std::mt19937( std::random_device()() ) );
+    std::shuffle( order, &order[N1], std::mt19937( 12345 ) );
     AMP::Array<double> x1( ndim, N1 );
     auto triangles = data->get_tri();
     for ( size_t i = 0; i < N1; i++ ) {
@@ -520,8 +520,7 @@ void testInterpolation( AMP::UnitTest &ut,
     int Nn    = 3;
     size_t N2 = Nn * N;
     AMP::Array<TYPE> x2( ndim, N2 );
-    std::random_device rd;
-    std::mt19937 gen( rd() );
+    std::mt19937 gen( 12345 );
     std::uniform_real_distribution<double> dist( -1, 1 );
     for ( size_t i = 0; i < N; i++ ) {
         for ( int j = 0; j < Nn; j++ ) {

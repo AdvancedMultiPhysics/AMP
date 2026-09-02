@@ -97,6 +97,11 @@ public:
         T *ptr;
         auto err = hipMallocManaged( (void **) &ptr, n * sizeof( T ), hipMemAttachGlobal );
         checkHipErrors( err );
+        int d_id = 0;
+        err      = hipGetDevice( &d_id );
+        checkHipErrors( err );
+        err = hipMemAdvise( (const void *) ptr, n * sizeof( T ), hipMemAdviseSetCoarseGrain, d_id );
+        checkHipErrors( err );
         return ptr;
     }
 
@@ -104,6 +109,11 @@ public:
     {
         T *ptr;
         auto err = hipMallocManaged( (void **) &ptr, n * sizeof( T ), hipMemAttachGlobal );
+        checkHipErrors( err );
+        int d_id = 0;
+        err      = hipGetDevice( &d_id );
+        checkHipErrors( err );
+        err = hipMemAdvise( (const void *) ptr, n * sizeof( T ), hipMemAdviseSetCoarseGrain, d_id );
         checkHipErrors( err );
         // following will be needed some day, but is not currently functional
         // err = hipStreamAttachMemAsync( stream, (void *) ptr, n * sizeof( T ), hipMemAttachSingle

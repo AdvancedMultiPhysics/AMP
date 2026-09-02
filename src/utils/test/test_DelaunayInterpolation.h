@@ -133,8 +133,7 @@ std::vector<PointInt<NDIM>> createRandomPointsInt( int N )
         }
     }
     // Add random points
-    std::random_device rd;
-    std::mt19937 gen( rd() );
+    std::mt19937 gen( 12345 );
     std::uniform_int_distribution<int> dist( -R_INT, R_INT );
     while ( static_cast<int>( points.size() ) < N + 5 ) {
         PointInt<NDIM> p;
@@ -153,7 +152,7 @@ std::vector<PointInt<NDIM>> createRandomPointsInt( int N )
     }
     points.resize( std::min<size_t>( points.size(), N ) );
     // Resort the points in random order
-    std::shuffle( points.begin(), points.end(), std::mt19937( std::random_device()() ) );
+    std::shuffle( points.begin(), points.end(), std::mt19937( 12345 ) );
     return points;
 }
 AMP::Array<int> getPointListInt( int ndim, int N )
@@ -226,8 +225,7 @@ AMP::Array<double> createRandomPoints<double>( int ndim, int N )
         }
     }
     // Add random points
-    std::random_device rd;
-    std::mt19937 gen( rd() );
+    std::mt19937 gen( 12345 );
     std::uniform_real_distribution<double> dist( -1, 1 );
     while ( i < N ) {
         double x[10] = { 0 };
