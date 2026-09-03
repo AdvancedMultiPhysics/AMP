@@ -536,8 +536,9 @@ void MatrixTests::VerifyMatMultMatrix( AMP::UnitTest *utils )
     // Verify matMatMult with 0 matrix
     auto matProd = AMP::LinearAlgebra::Matrix::matMatMult( matZero, matLaplac );
     if ( matProd->LinfNorm() == 0.0 ) {
-        //    if ( true ) {
         utils->passes( "matMatMult 0*A " + matZero->type() );
+    } else if ( matZero->type() == "ManagedTpetraMatrix" ) {
+        utils->expected_failure( "matMatMult 0*A allowed to fail for Trilinos version < 16.2.0" );
     } else {
         utils->failure( "matMatMult 0*A " + matZero->type() );
     }

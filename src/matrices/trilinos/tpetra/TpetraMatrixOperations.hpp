@@ -4,9 +4,9 @@
 #include "AMP/vectors/trilinos/tpetra/TpetraVector.h"
 
 DISABLE_WARNINGS
-#include "TpetraExt_MatrixMatrix.hpp"
+#include <TpetraExt_MatrixMatrix.hpp>
 #include <Tpetra_CrsMatrix_def.hpp>
-//#include <Tpetra_FECrsMatrix.h>
+#include <Trilinos_version.h>
 ENABLE_WARNINGS
 
 #include "ProfilerApp.h"
@@ -176,9 +176,9 @@ void TpetraMatrixOperations<ST, LO, GO, NT>::extractDiagonal( MatrixData const &
 template<typename ST, typename LO, typename GO, typename NT>
 AMP::Scalar TpetraMatrixOperations<ST, LO, GO, NT>::LinfNorm( MatrixData const &A ) const
 {
-#if Trilinos_MAJOR_MINOR_VERSION < 160200
-    AMP_ERROR( "Not implemented" );
-    return 0;
+#if TRILINOS_MAJOR_MINOR_VERSION < 160200
+    AMP_WARNING( "Not implemented" );
+    return ST{ -1.0 };
 #else
     return getTpetra_CrsMatrix<ST, LO, GO, NT>( A ).getNormInf();
 #endif
