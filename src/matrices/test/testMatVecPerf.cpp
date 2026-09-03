@@ -148,7 +148,12 @@ size_t matVecTest( AMP::UnitTest *ut, const std::string &input_file )
 
     // Test on defined matrix types
 #if defined( AMP_USE_TRILINOS )
+    #if defined( AMP_USE_TRILINOS_EPETRA )
     matVecTestWithDOFs( ut, "ManagedEpetraMatrix", scalarDOFs, true, "serial", "host" );
+    #endif
+    #if defined( AMP_USE_TRILINOS_TPETRA )
+    matVecTestWithDOFs( ut, "ManagedTpetraMatrix", scalarDOFs, true, "serial", "host" );
+    #endif
 #endif
 #if defined( AMP_USE_PETSC )
     matVecTestWithDOFs( ut, "NativePetscMatrix", scalarDOFs, true, "serial", "host" );

@@ -1,7 +1,7 @@
 #include "AMP/solvers/trilinos/muelu/TrilinosMueLuSolver.h"
 #include "AMP/matrices/Matrix.h"
-#include "AMP/matrices/trilinos/EpetraMatrixData.h"
-#include "AMP/matrices/trilinos/EpetraMatrixHelpers.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixData.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixHelpers.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
 
@@ -26,8 +26,12 @@ DISABLE_WARNINGS
 #include "Xpetra_EpetraVector.hpp"
 #include "Xpetra_Matrix.hpp"
 #include "Xpetra_Operator.hpp"
-#if TRILINOS_MAJOR_MINOR_VERSION >= 130400
+#if defined( AMP_USE_TRILINOS_EPETRA )
     #include "MueLu_CreateEpetraPreconditioner.hpp"
+#elif defined( AMP_USE_TRILINOS_TPETRA )
+    #include "MueLu_CreateTpetraPreconditioner.hpp"
+#else
+    #error "Muelu needs either Tpetra or Epetra enabled"
 #endif
 ENABLE_WARNINGS
 
@@ -126,11 +130,22 @@ DISABLE_WARNINGS
 Teuchos::RCP<Xpetra::Matrix<SC, LO, GO, NO>> TrilinosMueLuSolver::getXpetraMatrix()
 {
     // wrap in a Xpetra matrix
+#if defined( AMP_USE_TRILINOS_EPETRA )
     auto epetraMatrixData =
         AMP::LinearAlgebra::EpetraMatrixData::createView( d_matrix->getMatrixData() );
     auto epA = Teuchos::rcpFromRef( epetraMatrixData->getEpetra_CrsMatrix() );
     Teuchos::RCP<Xpetra::CrsMatrix<SC, LO, GO, NO>> exA =
         Teuchos::rcp( new Xpetra::EpetraCrsMatrixT<GO, NO>( epA ) );
+#elif defined( AMP_USE_TRILINOS_TPETRA )
+    auto tpetraMatrixData =
+        AMP::LinearAlgebra::TpetraMatrixData::createView( d_matrix->getMatrixData() );
+    auto epA = Teuchos::rcpFromRef( tpetraMatrixData->getTpetra_CrsMatrix() );
+    Teuchos::RCP<Xpetra::CrsMatrix<SC, LO, GO, NO>> exA =
+        Teuchos::rcp( new Xpetra::TpetraCrsMatrixT<GO, NO>( epA ) );
+#else
+    #error "Muelu needs either Tpetra or Epetra enabled"
+#endif
+
     auto crsWrapMat = Teuchos::rcp( new Xpetra::CrsMatrixWrap<SC, LO, GO, NO>( exA ) );
     auto xA         = Teuchos::rcp_dynamic_cast<Xpetra::Matrix<SC, LO, GO, NO>>( crsWrapMat );
     return xA;

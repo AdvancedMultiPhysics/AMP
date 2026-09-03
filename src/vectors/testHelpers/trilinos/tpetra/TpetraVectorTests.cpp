@@ -25,18 +25,18 @@ void TpetraVectorTests::testTpetraVector( AMP::UnitTest *ut ) { VerifyNorms( ut 
 
 void TpetraVectorTests::VerifyNorms( AMP::UnitTest *ut )
 {
-    auto vec  = d_factory->getVector();
-    auto view = AMP::LinearAlgebra::TpetraVector::view( vec );
-    auto &Vec = view->getTpetra_Vector();
-    int NVec  = Vec.getNumVectors();
-    AMP_ASSERT( NVec == 1 );
+    auto vec = d_factory->getVector();
 
-    double ans1, ans2;
     if ( vec->isType<double>( 0 ) ) {
+        auto view = AMP::LinearAlgebra::TpetraVector<>::view( vec );
+        auto &Vec = view->getTpetra_Vector();
+        int NVec  = Vec.getNumVectors();
+        AMP_ASSERT( NVec == 1 );
+
         vec->setRandomValues();
 
-        ans1 = static_cast<double>( vec->L1Norm() );
-        ans2 = Vec.norm1();
+        double ans1 = static_cast<double>( vec->L1Norm() );
+        double ans2 = Vec.norm1();
         PASS_FAIL( fabs( ans1 - ans2 ) < 1e-12 * fabs( ans1 ), "Tpetra L1 norms match" );
 
         ans1 = static_cast<double>( vec->L2Norm() );

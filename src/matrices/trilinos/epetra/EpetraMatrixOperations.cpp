@@ -1,6 +1,6 @@
-#include "AMP/matrices/trilinos/EpetraMatrixOperations.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixOperations.h"
 #include "AMP/discretization/DOF_Manager.h"
-#include "AMP/matrices/trilinos/EpetraMatrixData.h"
+#include "AMP/matrices/trilinos/epetra/EpetraMatrixData.h"
 #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
 
 DISABLE_WARNINGS

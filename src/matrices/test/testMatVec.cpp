@@ -28,8 +28,10 @@ void matVecTestWithDOFs( AMP::UnitTest *ut,
 {
     auto comm = AMP::AMP_MPI( AMP_COMM_WORLD );
     std::string type;
-#if defined( AMP_USE_TRILINOS )
-    type = "ManagedEpetraMatrix";
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_TPETRA )
+    type = "ManagedTpetraMatrix";
+// #elif defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_EPETRA )
+//     type = "ManagedEpetraMatrix";
 #elif defined( AMP_USE_PETSC )
     type = "NativePetscMatrix";
 #else

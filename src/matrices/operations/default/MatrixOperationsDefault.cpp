@@ -41,6 +41,7 @@ void MatrixOperationsDefault::copy( const MatrixData &X, MatrixData &Y )
     AMP_ASSERT( X.numLocalColumns() == Y.numLocalColumns() );
     AMP_ASSERT( X.numGlobalColumns() == Y.numGlobalColumns() );
 
+    Y.enableModifications();
     std::vector<size_t> xcols;
     std::vector<double> xvals;
     auto beginRow = X.beginRow();
@@ -49,6 +50,7 @@ void MatrixOperationsDefault::copy( const MatrixData &X, MatrixData &Y )
         X.getRowByGlobalID( i, xcols, xvals );
         Y.setValuesByGlobalID( 1, xcols.size(), &i, xcols.data(), xvals.data() );
     }
+    Y.disableModifications();
 }
 
 } // namespace AMP::LinearAlgebra

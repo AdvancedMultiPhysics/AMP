@@ -17,9 +17,14 @@
     #include "AMP/matrices/petsc/NativePetscMatrix.h"
     #include "AMP/vectors/petsc/PetscHelpers.h"
 #endif
-#ifdef AMP_USE_TRILINOS
-    #include "AMP/matrices/trilinos/EpetraMatrixData.h"
-    #include "AMP/matrices/trilinos/ManagedEpetraMatrix.h"
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_EPETRA )
+    #include "AMP/matrices/trilinos/epetra/EpetraMatrixData.h"
+    #include "AMP/matrices/trilinos/epetra/ManagedEpetraMatrix.h"
+#endif
+
+#if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_TPETRA )
+    #include "AMP/matrices/trilinos/tpetra/ManagedTpetraMatrix.h"
+    #include "AMP/matrices/trilinos/tpetra/TpetraMatrixData.h"
 #endif
 
 #ifdef AMP_USE_HYPRE
@@ -49,7 +54,7 @@ createManagedMatrix( [[maybe_unused]] AMP::LinearAlgebra::Vector::shared_ptr lef
                      [[maybe_unused]] const std::function<std::vector<size_t>( size_t )> &getRow,
                      [[maybe_unused]] const std::string &type )
 {
-    if ( type == "ManagedEpetraMatrix" ) {
+    if ( type == "ManagedEpetraMatrix" || type == "ManagedTpetraMatrix" ) {
 #if defined( AMP_USE_TRILINOS )
         // Get the DOFs
         auto leftDOF  = leftVec->getDOFManager();
@@ -71,19 +76,43 @@ createManagedMatrix( [[maybe_unused]] AMP::LinearAlgebra::Vector::shared_ptr lef
             rightVec->getCommunicationList(),
             getRow );
 
-        // Create the matrix
-        auto newMatrixData = std::make_shared<AMP::LinearAlgebra::EpetraMatrixData>( params );
-        auto newMatrix = std::make_shared<AMP::LinearAlgebra::ManagedEpetraMatrix>( newMatrixData );
-        newMatrix->zero();
-        newMatrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
-        return newMatrix;
+        if ( type == "ManagedEpetraMatrix" ) {
+    #if defined( AMP_USE_TRILINOS_EPETRA )
+            // Create the matrix
+            auto newMatrixData = std::make_shared<AMP::LinearAlgebra::EpetraMatrixData>( params );
+            auto newMatrix =
+                std::make_shared<AMP::LinearAlgebra::ManagedEpetraMatrix>( newMatrixData );
+            newMatrix->zero();
+            newMatrix->makeConsistent( AMP::LinearAlgebra::ScatterType::CONSISTENT_ADD );
+            return newMatrix;
+    #else
+            AMP_ERROR( "Unable to build ManagedEpetraMatrix without Trilinos Epetra enabled" );
+            return nullptr;
+    #endif
+        }
+
+        if ( type == "ManagedTpetraMatrix" ) {
+    #if defined( AMP_USE_TRILINOS_TPETRA )
+            // Create the matrix
+            auto newMatrixData = std::make_shared<AMP::LinearAlgebra::TpetraMatrixData<>>( params );
+            auto newMatrix =
+                std::make_shared<AMP::LinearAlgebra::ManagedTpetraMatrix<>>( newMatrixData );
+            return newMatrix;
+    #else
+            AMP_ERROR( "Unable to build ManagedTpetraMatrix without Trilinos Tpetra enabled" );
+            return nullptr;
+    #endif
+        }
 #else
-        AMP_ERROR( "Unable to build ManagedEpetraMatrix without Trilinos" );
+        AMP_ERROR( "Unable to build Managed{E,T}petraMatrix without Trilinos" );
+        return nullptr;
 #endif
     } else {
         AMP_ERROR( "Unknown ManagedMatrix type" );
         return nullptr;
     }
+
+    return nullptr;
 }
 
 /********************************************************
@@ -383,7 +412,7 @@ createMatrix( AMP::LinearAlgebra::Vector::shared_ptr rightVec,
 
     // Build the matrix
     std::shared_ptr<AMP::LinearAlgebra::Matrix> matrix;
-    if ( type == "ManagedEpetraMatrix" ) {
+    if ( type == "ManagedEpetraMatrix" || type == "ManagedTpetraMatrix" ) {
         matrix = createManagedMatrix( leftVec, rightVec, getRow, type );
     } else if ( type == "NativePetscMatrix" ) {
         matrix = createNativePetscMatrix( leftVec, rightVec, getRow );

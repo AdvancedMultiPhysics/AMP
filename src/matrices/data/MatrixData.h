@@ -274,6 +274,15 @@ public:
      */
     virtual typeID getCoeffType() const = 0;
 
+    /**
+     * Allow a matrix' structure and values to be modified
+     */
+    virtual void enableModifications() {}
+
+    /**
+     * Disable modifying a matrix' structure and values
+     */
+    virtual void disableModifications() {}
 
 public: // Non virtual functions
     //! Get a unique id hash for the vector

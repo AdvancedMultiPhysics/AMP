@@ -42,9 +42,13 @@ int main( int argc, char **argv )
     PROFILE_ENABLE();
 
 
-    // Get the types of matricies to test
-    std::vector<std::string> types = { "CSRMatrix" };
-#ifdef AMP_USE_TRILINOS
+    // Get the types of matrices to test
+    std::vector<std::string> types;
+    types.emplace_back( "CSRMatrix" );
+#ifdef AMP_USE_TRILINOS_TPETRA
+    types.emplace_back( "ManagedTpetraMatrix" );
+#endif
+#ifdef AMP_USE_TRILINOS_EPETRA
     types.emplace_back( "ManagedEpetraMatrix" );
 #endif
 #ifdef AMP_USE_PETSC

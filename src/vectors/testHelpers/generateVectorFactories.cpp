@@ -11,8 +11,10 @@
 
 #ifdef AMP_USE_TRILINOS
     #ifdef AMP_USE_TRILINOS_EPETRA
+DISABLE_WARNINGS
         #include "AMP/vectors/testHelpers/trilinos/epetra/EpetraVectorFactory.h"
         #include "AMP/vectors/trilinos/epetra/EpetraVector.h"
+ENABLE_WARNINGS
     #endif
     #ifdef AMP_USE_TRILINOS_TPETRA
         #include "AMP/vectors/testHelpers/trilinos/tpetra/TpetraVectorFactory.h"
@@ -332,7 +334,7 @@ std::shared_ptr<VectorFactory> generateVectorFactory( const std::string &name )
 #endif
         } else if ( args[0] == "TpetraVector" ) {
 #if defined( AMP_USE_TRILINOS ) && defined( AMP_USE_TRILINOS_TPETRA )
-            factory.reset( new ViewFactory<TpetraVector>( factory2 ) );
+            factory.reset( new ViewFactory<TpetraVector<>>( factory2 ) );
 #endif
         } else {
             AMP_ERROR( "Unknown template argument for ViewFactory" );

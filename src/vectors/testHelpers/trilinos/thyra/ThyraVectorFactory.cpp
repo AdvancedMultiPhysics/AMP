@@ -37,15 +37,16 @@ namespace AMP::LinearAlgebra {
  ****************************************************************/
 AMP::LinearAlgebra::Vector::shared_ptr NativeThyraFactory::getVector() const
 {
+#ifdef AMP_USE_TRILINOS_THYRAEPETRAADAPTERS
     AMP_MPI global_comm( AMP_COMM_WORLD );
     int local_size  = 101;
     int global_size = global_comm.sumReduce( local_size );
-// Create an epetra vector
-#ifdef AMP_USE_MPI
+    // Create an epetra vector
+    #ifdef AMP_USE_MPI
     Epetra_MpiComm comm = global_comm.getCommunicator();
-#else
+    #else
     Epetra_SerialComm comm;
-#endif
+    #endif
     Teuchos::RCP<Epetra_Map> epetra_map( new Epetra_Map( global_size, local_size, 0, comm ) );
     Teuchos::RCP<Epetra_Vector> epetra_v( new Epetra_Vector( *epetra_map, true ) );
     // Create a thyra vector from the epetra vector
@@ -55,6 +56,11 @@ AMP::LinearAlgebra::Vector::shared_ptr NativeThyraFactory::getVector() const
     auto var = std::make_shared<AMP::LinearAlgebra::Variable>( "thyra" );
     auto vec = AMP::LinearAlgebra::createVector( thyra_v, local_size, global_comm, var );
     return vec;
+#else
+    AMP_ERROR(
+        "Thyra must be built with EpetraAdaptor support to use NativeThyraFactory::getVector" );
+    return nullptr;
+#endif
 }
 
 
