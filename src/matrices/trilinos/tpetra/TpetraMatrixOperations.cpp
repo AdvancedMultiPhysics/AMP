@@ -3,6 +3,6 @@
 
 namespace AMP::LinearAlgebra {
 
-template class TpetraMatrixOperations<Tpetra_ST, Tpetra_LO, Tpetra_GO>;
+template class TpetraMatrixOperations<Tpetra_ST, Tpetra_LO, Tpetra_GO, Tpetra_NT>;
 
 } // namespace AMP::LinearAlgebra
