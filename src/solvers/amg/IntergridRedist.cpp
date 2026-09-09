@@ -7,20 +7,52 @@ namespace AMP::Solver::AMG {
 
 IntergridRedist::IntergridRedist( std::shared_ptr<AMP::Operator::OperatorParameters> params,
                                   direction dir,
-                                  const redist_context &ctx )
-    : AMP::Operator::LinearOperator( params ), d_direction{ dir }, d_redist_context{ ctx }
+                                  const redist_context &ctx,
+                                  std::shared_ptr<LinearAlgebra::Vector> interface_in,
+                                  std::shared_ptr<LinearAlgebra::Vector> interface_out )
+    : AMP::Operator::LinearOperator( params ),
+      d_direction{ dir },
+      d_redist_context{ ctx },
+      d_interface_in{ std::move( interface_in ) },
+      d_interface_out{ std::move( interface_out ) }
 {
 }
 
 IntergridRedist::IntergridRedist( std::shared_ptr<AMP::Operator::OperatorParameters> params,
                                   direction dir,
                                   const redist_context &ctx,
-                                  std::shared_ptr<AMP::Operator::Operator> transfer )
+                                  std::shared_ptr<AMP::Operator::Operator> transfer,
+                                  std::shared_ptr<LinearAlgebra::Vector> interface_in,
+                                  std::shared_ptr<LinearAlgebra::Vector> interface_out )
     : AMP::Operator::LinearOperator( params ),
       d_direction{ dir },
       d_redist_context{ ctx },
-      d_transfer{ std::move( transfer ) }
+      d_transfer{ std::move( transfer ) },
+      d_interface_in{ std::move( interface_in ) },
+      d_interface_out{ std::move( interface_out ) }
 {
+}
+
+std::shared_ptr<LinearAlgebra::Vector> IntergridRedist::createInputVector() const
+{
+    if ( d_interface_in ) {
+        return d_interface_in->clone();
+    }
+    if ( d_transfer ) {
+        return d_transfer->createInputVector();
+    }
+    return LinearOperator::createInputVector();
+}
+
+std::shared_ptr<LinearAlgebra::Vector> IntergridRedist::createOutputVector() const
+{
+    if ( d_interface_out ) {
+        return d_interface_out->clone();
+    }
+    if ( d_transfer ) {
+        return d_transfer->createOutputVector();
+    }
+    return LinearOperator::createOutputVector();
 }
 
 void IntergridRedist::apply( std::shared_ptr<const LinearAlgebra::Vector> u,

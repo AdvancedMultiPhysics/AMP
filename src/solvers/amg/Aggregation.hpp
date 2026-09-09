@@ -343,8 +343,8 @@ auto coarsen_matrix( const LinearAlgebra::CSRMatrix<Config> &fine_matrix,
 
     coarse_matrix<Config> coarse_mat;
     coarse_mat.comm      = comm;
-    coarse_mat.left_var  = fine_matrix.getMatrixData()->getRightVariable();
-    coarse_mat.right_var = fine_matrix.getMatrixData()->getLeftVariable();
+    coarse_mat.left_var  = fine_matrix.getMatrixData()->getLeftVariable();
+    coarse_mat.right_var = fine_matrix.getMatrixData()->getRightVariable();
     auto size_rowptr     = [&]( auto &m ) { m.rowptr.resize( aggregates.size() + 1 ); };
     size_rowptr( coarse_mat.store.diag() );
     if ( fine.has_offd() )
@@ -557,18 +557,33 @@ protected:
 };
 
 template<class Config>
-auto make_ua_intergrid( aggregateT_type<Config> &&aggT,
+auto make_ua_intergrid( std::shared_ptr<const aggregateT_type<Config>> aggT_ptr,
                         std::shared_ptr<const LinearAlgebra::Vector> input_vec,
-                        std::shared_ptr<const LinearAlgebra::Vector> output_vec )
+                        std::shared_ptr<const LinearAlgebra::Vector> output_vec,
+                        typename UAIntergridParams<Config>::intergrid_type transfer_type =
+                            UAIntergridParams<Config>::intergrid_type::interpolation )
 {
-    auto aggT_ptr = std::make_shared<const aggregateT_type<Config>>( std::move( aggT ) );
-
     auto params           = std::make_shared<UAIntergridParams<Config>>();
     params->d_db          = std::make_shared<AMP::Database>();
-    params->aggregatesT   = aggT_ptr;
+    params->aggregatesT   = std::move( aggT_ptr );
     params->input_vector  = std::move( input_vec );
     params->output_vector = std::move( output_vec );
+    params->transfer_type = transfer_type;
     return std::make_shared<AggregateInjection<Config>>( params );
+}
+
+template<class Config>
+auto make_ua_intergrid( aggregateT_type<Config> &&aggT,
+                        std::shared_ptr<const LinearAlgebra::Vector> input_vec,
+                        std::shared_ptr<const LinearAlgebra::Vector> output_vec,
+                        typename UAIntergridParams<Config>::intergrid_type transfer_type =
+                            UAIntergridParams<Config>::intergrid_type::interpolation )
+{
+    return make_ua_intergrid<Config>(
+        std::make_shared<const aggregateT_type<Config>>( std::move( aggT ) ),
+        std::move( input_vec ),
+        std::move( output_vec ),
+        transfer_type );
 }
 
 template<class Fine>
@@ -609,10 +624,18 @@ coarse_ops_type pairwise_coarsen( const LinearAlgebra::CSRMatrix<Config> &fine,
     auto aggregatesT = transpose_aggregates( aggregates, fine.numLocalRows() );
     auto matrix      = coarsen_matrix( fine, aggregates, aggregatesT );
     auto Ac          = make_coarse_operator( matrix );
-    auto P           = make_ua_intergrid<Config>(
-        std::move( aggregatesT ), Ac->createInputVector(), fine.createInputVector() );
+    auto aggregatesTptr =
+        std::make_shared<const aggregateT_type<Config>>( std::move( aggregatesT ) );
+    auto R = make_ua_intergrid<Config>( aggregatesTptr,
+                                        fine.createOutputVector(),
+                                        Ac->createOutputVector(),
+                                        UAIntergridParams<Config>::intergrid_type::restriction );
+    auto P = make_ua_intergrid<Config>( std::move( aggregatesTptr ),
+                                        Ac->createInputVector(),
+                                        fine.createInputVector(),
+                                        UAIntergridParams<Config>::intergrid_type::interpolation );
 
-    return { P->T(), Ac, P };
+    return { R, Ac, P };
 }
 
 template<class Config>
