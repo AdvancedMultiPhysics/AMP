@@ -1,5 +1,5 @@
 #include "AMP/vectors/trilinos/tpetra/TpetraVectorOperations.hpp"
-#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.hpp"
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
 namespace AMP::LinearAlgebra {
 
