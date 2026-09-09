@@ -159,8 +159,8 @@ Aggregator::getAggregateMatrix( std::shared_ptr<LinearAlgebra::CSRMatrix<Config>
             leftDOFs,
             rightDOFs,
             A->getComm(),
-            A_data->getLeftVariable(),
-            A_data->getLeftVariable(),
+            A_data->getRightVariable(),
+            A_data->getRightVariable(),
             A->getBackend(),
             std::function<std::vector<size_t>( size_t )>() );
     } else {
