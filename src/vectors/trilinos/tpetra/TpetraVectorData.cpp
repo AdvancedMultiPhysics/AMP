@@ -3,9 +3,9 @@
 
 namespace AMP::LinearAlgebra {
 
-template class TpetraVectorData<double, int32_t, int32_t, TpetraNT>;
-template class TpetraVectorData<double, int32_t, int64_t, TpetraNT>;
-template class TpetraVectorData<float, int32_t, int32_t, TpetraNT>;
-template class TpetraVectorData<float, int32_t, int64_t, TpetraNT>;
+template class TpetraVectorData<double, int32_t, int32_t, Tpetra_NT>;
+template class TpetraVectorData<double, int32_t, int64_t, Tpetra_NT>;
+template class TpetraVectorData<float, int32_t, int32_t, Tpetra_NT>;
+template class TpetraVectorData<float, int32_t, int64_t, Tpetra_NT>;
 
 } // namespace AMP::LinearAlgebra

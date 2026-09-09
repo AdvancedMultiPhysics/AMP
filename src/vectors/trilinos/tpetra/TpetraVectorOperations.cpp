@@ -3,9 +3,9 @@
 
 namespace AMP::LinearAlgebra {
 
-template class TpetraVectorOperations<double, int32_t, int32_t, TpetraNT>;
-template class TpetraVectorOperations<double, int32_t, int64_t, TpetraNT>;
-template class TpetraVectorOperations<float, int32_t, int32_t, TpetraNT>;
-template class TpetraVectorOperations<float, int32_t, int64_t, TpetraNT>;
+template class TpetraVectorOperations<double, int32_t, int32_t, Tpetra_NT>;
+template class TpetraVectorOperations<double, int32_t, int64_t, Tpetra_NT>;
+template class TpetraVectorOperations<float, int32_t, int32_t, Tpetra_NT>;
+template class TpetraVectorOperations<float, int32_t, int64_t, Tpetra_NT>;
 
 } // namespace AMP::LinearAlgebra
