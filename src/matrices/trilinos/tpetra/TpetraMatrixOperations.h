@@ -8,10 +8,7 @@
 
 namespace AMP::LinearAlgebra {
 
-template<typename ST = Tpetra_ST,
-         typename LO = Tpetra_LO,
-         typename GO = Tpetra_GO,
-         typename NT = Tpetra_NT>
+template<typename ST, typename LO, typename GO, typename NT>
 class TpetraMatrixOperations : public MatrixOperations
 {
 

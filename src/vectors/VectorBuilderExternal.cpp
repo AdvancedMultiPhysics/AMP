@@ -22,6 +22,7 @@ DISABLE_WARNINGS
 ENABLE_WARNINGS
     #endif
     #ifdef AMP_USE_TRILINOS_TPETRA
+        #include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorData.h"
         #include "AMP/vectors/trilinos/tpetra/TpetraVectorOperations.h"
     #endif
@@ -110,9 +111,11 @@ std::shared_ptr<Vector> createEpetraVector( std::shared_ptr<CommunicationList>,
 std::shared_ptr<Vector> createTpetraVector( std::shared_ptr<CommunicationList> commList,
                                             std::shared_ptr<AMP::Discretization::DOFManager> DOFs )
 {
-    auto var  = std::make_shared<Variable>( "vec" );
-    auto ops  = std::make_shared<TpetraVectorOperations<>>();
-    auto data = std::make_shared<TpetraVectorData<>>( commList, DOFs );
+    auto var = std::make_shared<Variable>( "vec" );
+    auto ops =
+        std::make_shared<TpetraVectorOperations<Tpetra_ST, Tpetra_LO, Tpetra_GO, Tpetra_NT>>();
+    auto data = std::make_shared<TpetraVectorData<Tpetra_ST, Tpetra_LO, Tpetra_GO, Tpetra_NT>>(
+        commList, DOFs );
     return std::make_shared<Vector>( data, ops, var, DOFs );
 }
 #else

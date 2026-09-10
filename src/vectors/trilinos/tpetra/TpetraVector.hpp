@@ -31,7 +31,7 @@ wrapAMPVec( std::shared_ptr<Vector> vec, const Teuchos::RCP<const Tpetra::Map<LO
     }
 
     // check if this is already a Tpetra vector
-    auto tpetraData = std::dynamic_pointer_cast<TpetraVectorData<>>( vecData );
+    auto tpetraData = std::dynamic_pointer_cast<TpetraVectorData<ST, LO, GO, NT>>( vecData );
 
     if ( tpetraData ) {
         return tpetraData->getTpetraVector();

@@ -1,9 +1,8 @@
 #include "AMP/vectors/trilinos/tpetra/TpetraVectorData.hpp"
+#include "AMP/vectors/trilinos/tpetra/TpetraDefaults.h"
 
 namespace AMP::LinearAlgebra {
 
-template class TpetraVectorData<double, int32_t, int32_t>;
-template class TpetraVectorData<double, int32_t, int64_t>;
-template class TpetraVectorData<float, int32_t, int64_t>;
+template class TpetraVectorData<Tpetra_ST, Tpetra_LO, Tpetra_GO, Tpetra_NT>;
 
 } // namespace AMP::LinearAlgebra
