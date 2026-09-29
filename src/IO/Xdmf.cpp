@@ -68,29 +68,29 @@ static void addVariable( FILE *xmf,
  * Enum functions                                                *
  ****************************************************************/
 static const char *TopologyTypeNames[]  = { "",
-                                           "Polyvertex",
-                                           "Polyline",
-                                           "Polygon",
-                                           "Triangle",
-                                           "Quadrilateral",
-                                           "Tetrahedron",
-                                           "Pyramid",
-                                           "Wedge",
-                                           "Hexahedron",
-                                           "Edge_3",
-                                           "Triangle_6",
-                                           "Quadrilateral_8",
-                                           "Tetrahedron_10",
-                                           "Pyramid_13",
-                                           "Wedge_15",
-                                           "Hexahedron_20",
-                                           "Mixed",
-                                           "CurvilinearMesh2D",
-                                           "CurvilinearMesh3D",
-                                           "RectangularMesh2D",
-                                           "RectangularMesh3D",
-                                           "UniformMesh2D",
-                                           "UniformMesh3D" };
+                                            "Polyvertex",
+                                            "Polyline",
+                                            "Polygon",
+                                            "Triangle",
+                                            "Quadrilateral",
+                                            "Tetrahedron",
+                                            "Pyramid",
+                                            "Wedge",
+                                            "Hexahedron",
+                                            "Edge_3",
+                                            "Triangle_6",
+                                            "Quadrilateral_8",
+                                            "Tetrahedron_10",
+                                            "Pyramid_13",
+                                            "Wedge_15",
+                                            "Hexahedron_20",
+                                            "Mixed",
+                                            "CurvilinearMesh2D",
+                                            "CurvilinearMesh3D",
+                                            "RectangularMesh2D",
+                                            "RectangularMesh3D",
+                                            "UniformMesh2D",
+                                            "UniformMesh3D" };
 static const uint8_t TopologyTypeDOFs[] = { 0, 1,  2,  0,  3,  4, 4, 5, 6, 8, 3, 6,
                                             8, 10, 13, 15, 20, 0, 0, 0, 0, 0, 0, 0 };
 
@@ -254,6 +254,14 @@ static void writeVariable( FILE *fid, const Xdmf::VarData &var, const std::strin
     } else {
         AMP_ERROR( "Unknown center type" );
     }
+    // Write information
+    for ( auto &[name, value] : var.information ) {
+        fprintf( fid,
+                 "%s  <Information Name=\"%s\" Value=\"%s\"/>\n",
+                 indent.data(),
+                 name.data(),
+                 value.data() );
+    }
     // Write the data item
     addDataItem( fid, indent + "  ", var.size, var.data );
     // Finished
@@ -271,8 +279,8 @@ static void writeMeshGrid( FILE *fid, const Xdmf::MeshData &mesh, const std::str
     const char *s  = indent.data();
     double x0[3]   = { mesh.range[0], mesh.range[2], mesh.range[4] };
     double dx[3]   = { ( mesh.range[1] - mesh.range[0] ) / mesh.size[0],
-                     ( mesh.range[3] - mesh.range[2] ) / mesh.size[1],
-                     ( mesh.range[5] - mesh.range[4] ) / mesh.size[2] };
+                       ( mesh.range[3] - mesh.range[2] ) / mesh.size[1],
+                       ( mesh.range[5] - mesh.range[4] ) / mesh.size[2] };
     if ( type == Topology::UniformMesh2D ) {
         // Write a uniform 2d mesh
         fprintf( fid, "%s<Grid Name=\"%s\" GridType=\"Uniform\">\n", s, mesh.name.data() );

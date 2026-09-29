@@ -1,4 +1,20 @@
 #include "AMP/operators/radiationDiffusionFD/RadiationDiffusionFDDiscretization.h"
+#include "AMP/IO/AsciiWriter.h"
+#include "AMP/IO/PIO.h"
+#include "AMP/discretization/MultiDOF_Manager.h"
+#include "AMP/discretization/boxMeshDOFManager.h"
+#include "AMP/geometry/shapes/Box.h"
+#include "AMP/matrices/MatrixBuilder.h"
+#include "AMP/mesh/structured/BoxMesh.h"
+#include "AMP/mesh/structured/structuredMeshElement.h"
+#include "AMP/operators/LinearOperator.h"
+#include "AMP/operators/Operator.h"
+#include "AMP/operators/OperatorParameters.h"
+#include "AMP/utils/AMPManager.h"
+#include "AMP/vectors/MultiVector.h"
+#include "AMP/vectors/Vector.h"
+#include "AMP/vectors/VectorBuilder.h"
+
 
 namespace AMP::Operator {
 
@@ -804,8 +820,8 @@ void RadDifOpPJac::setDataReaction( std::shared_ptr<const AMP::LinearAlgebra::Ve
                 r_TE_rawData[dof] = RTE;
                 r_TT_rawData[dof] = RTT;
             } // Loop over i
-        }     // Loop over j
-    }         // Loop over k
+        } // Loop over j
+    } // Loop over k
 }
 
 
@@ -1447,8 +1463,8 @@ void RadDifOp::applyInterior( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                 LT_rawData[indORIGIN] = LT;
 
             } // Loop over i
-        }     // Loop over j
-    }         // Loop over k
+        } // Loop over j
+    } // Loop over k
 }
 
 void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,
@@ -1564,9 +1580,9 @@ void RadDifOp::applyBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> 
                     LT_vec->setValueByGlobalID<double>( indORIGIN, LT );
 
                 } // Loop first free dim
-            }     // Loop over second free dim
-        }         // Loop over boundary in frozen dim
-    }             // Loop over frozen dim
+            } // Loop over second free dim
+        } // Loop over boundary in frozen dim
+    } // Loop over frozen dim
 }
 
 void RadDifOp::getNNDataBoundary( std::shared_ptr<const AMP::LinearAlgebra::Vector> E_vec,

@@ -190,7 +190,6 @@ std::unique_ptr<Vector> Vector::rawClone() const
     PROFILE( "Vector::rawClone" );
 
     auto vec          = std::make_unique<Vector>();
-    vec->d_units      = d_units;
     vec->d_Variable   = vec->d_Variable->clone();
     vec->d_DOFManager = d_DOFManager;
     vec->d_VectorData = d_VectorData->cloneData();
@@ -206,7 +205,6 @@ void Vector::swapVectors( Vector &other )
     PROFILE( "Vector::swapVectors" );
 
     d_VectorData->swapData( *other.getVectorData() );
-    std::swap( d_units, other.d_units );
 }
 
 
@@ -479,7 +477,6 @@ size_t Vector::getNumberOfComponents() const
     return d_VectorData ? d_VectorData->getNumberOfComponents() : 0;
 }
 uint64_t Vector::getID() const { return getComm().bcast( reinterpret_cast<uint64_t>( this ), 0 ); }
-void Vector::setUnits( AMP::Units units ) { d_units = units; }
 std::ostream &operator<<( std::ostream &out, const Vector &v )
 {
     out << "Vector type: " << v.type() << "\n";
@@ -526,7 +523,6 @@ void Vector::registerChildObjects( AMP::IO::RestartManager *manager ) const
 }
 void Vector::writeRestart( int64_t fid ) const
 {
-    IO::writeHDF5( fid, "units", d_units );
     IO::writeHDF5( fid, "var", d_Variable->getID() );
     IO::writeHDF5( fid, "dofs", d_DOFManager->getID() );
     IO::writeHDF5( fid, "data", d_VectorData->getID() );
@@ -536,7 +532,6 @@ Vector::Vector( int64_t fid, AMP::IO::RestartManager *manager )
 {
     AMPManager::incrementResource( "Vector" );
     uint64_t variableID, DOFManagerID, VectorDataID, VectorOpsID;
-    IO::readHDF5( fid, "units", d_units );
     IO::readHDF5( fid, "var", variableID );
     IO::readHDF5( fid, "dofs", DOFManagerID );
     IO::readHDF5( fid, "data", VectorDataID );

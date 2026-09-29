@@ -453,8 +453,10 @@ static std::pair<int, int> getRankAndSize( [[maybe_unused]] AMP_MPI::Comm comm )
     int rank = 0;
     int size = 1;
 #ifdef AMP_USE_MPI
-    MPI_Comm_rank( comm, &rank );
-    MPI_Comm_size( comm, &size );
+    if ( AMP_MPI::MPI_Active() ) {
+        MPI_Comm_rank( comm, &rank );
+        MPI_Comm_size( comm, &size );
+    }
 #endif
     return { rank, size };
 }

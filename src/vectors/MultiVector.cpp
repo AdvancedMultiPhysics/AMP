@@ -365,7 +365,6 @@ std::unique_ptr<Vector> MultiVector::rawClone() const
     retVec->d_vVectors.resize( d_vVectors.size() );
     for ( size_t i = 0; i != d_vVectors.size(); i++ )
         retVec->d_vVectors[i] = d_vVectors[i]->clone();
-    retVec->d_units      = d_units;
     retVec->d_Variable   = d_Variable->clone();
     retVec->d_DOFManager = d_DOFManager;
     retVec->d_VectorData = std::make_shared<MultiVectorData>( getComm() );

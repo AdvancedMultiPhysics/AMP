@@ -134,10 +134,12 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
     Xdmf xmf;
     // AMP_ASSERT( d_comm.getSize() == 1 );
     //  Create the file
-    hid_t fid = -1;
-    std::string filename;
+    hid_t fid            = -1;
+    std::string filename = fname_in;
+    if ( cycle > 0 )
+        filename += "_" + std::to_string( cycle );
     if ( d_decomposition == DecompositionType::SINGLE ) {
-        filename = fname_in + "_" + std::to_string( cycle ) + ".hdf5";
+        filename += ".hdf5";
         if ( rank == 0 ) {
             auto fid2 = openHDF5( filename, "w", Compression::GZIP );
             writeHDF5( fid2, "time", time );
@@ -147,8 +149,7 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
         }
     } else {
         int rank = d_comm.getRank();
-        filename =
-            fname_in + "_" + std::to_string( cycle ) + "." + std::to_string( rank ) + ".hdf5";
+        filename += "." + std::to_string( rank ) + ".hdf5";
         fid = openHDF5( filename, "w", Compression::GZIP );
         writeHDF5( fid, "time", time );
         auto gid = createGroup( fid, "meshes" );
@@ -218,7 +219,10 @@ void HDF5writer::writeFile( [[maybe_unused]] const std::string &fname_in,
     // Write the Xdmf file
     xmf.gather( d_comm );
     if ( !xmf.empty() ) {
-        auto fname = fname_in + "_" + std::to_string( cycle ) + ".xmf";
+        auto fname = fname_in;
+        if ( cycle > 0 )
+            fname += "_" + std::to_string( cycle );
+        fname += ".xmf";
         xmf.write( fname );
         auto sname = fname_in + ".visit";
         FILE *sid  = nullptr;
@@ -363,6 +367,8 @@ Xdmf::MeshData HDF5writer::writeDefaultMesh( hid_t fid,
         var.center   = getCenter( mesh.mesh->getGeomType(), vec.type );
         var.size     = data.size();
         var.data     = path + "/" + vec.name;
+        if ( !vec.vec->getUnits().str().empty() )
+            var.information["Units"] = vec.vec->getUnits().str();
         XdmfData.vars.push_back( var );
     }
     // Close the groups
@@ -551,6 +557,8 @@ HDF5writer::writeBoxMesh( hid_t fid, const std::string &filename, const baseMesh
         var.center   = getCenter( mesh.mesh->getGeomType(), vec.type );
         var.size     = data[i].size();
         var.data     = path + "/" + vec.name;
+        if ( !vec.vec->getUnits().str().empty() )
+            var.information["Units"] = vec.vec->getUnits().str();
         XdmfData.vars.push_back( var );
     }
     // Close the groups

@@ -54,6 +54,7 @@ public:
         RankType rankType; // Rank order of data
         Center center;     // Variable centering
         std::string data;  // Variable data
+        std::map<std::string, std::string> information;
     };
 
     struct MeshData {
@@ -66,6 +67,7 @@ public:
         std::string z;             // z coordinates
         std::string dofMap;        // mesh connectivity
         std::vector<VarData> vars; // Variables
+        std::map<std::string, std::string> information;
         MeshData() : type( TopologyType::Null ), range{ 0 } {}
         //! Add a variable
         void addVariable( const std::string &varName,

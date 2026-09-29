@@ -7,9 +7,9 @@ namespace AMP::Mesh {
 /********************************************************
  * Constructors                                          *
  ********************************************************/
-MeshParameters::MeshParameters() : comm( AMP_COMM_NULL ), MAX_GCW_WIDTH( 1 ) {}
+MeshParameters::MeshParameters() : comm( AMP_COMM_WORLD ), MAX_GCW_WIDTH( 1 ) {}
 MeshParameters::MeshParameters( std::shared_ptr<AMP::Database> db )
-    : d_db( db ), comm( AMP_COMM_NULL ), MAX_GCW_WIDTH( 1 )
+    : d_db( db ), comm( AMP_COMM_WORLD ), MAX_GCW_WIDTH( 1 )
 {
 }
 

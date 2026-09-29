@@ -400,10 +400,10 @@ public: // Up/down-cast vectors
 
 public: // Get/Set data/variables/operations
     //! Get the units for this Vector
-    inline auto &getUnits() const { return d_units; }
+    inline auto &getUnits() const { return d_Variable->getUnits(); }
 
     //! Get the units for this Vector
-    virtual void setUnits( AMP::Units );
+    inline void setUnits( const AMP::Units &u ) { return d_Variable->setUnits( u ); }
 
     //! Get the DOFManager for this Vector
     inline std::shared_ptr<AMP::Discretization::DOFManager> getDOFManager() const;
@@ -782,7 +782,7 @@ public: // VectorData operations
     }
 
 public: // Get values
-    /**
+    /**vectors/Vector.h
      * \brief Return a value from the vector.
      * \param[in] i The global index into the vector
      * \return The value stored at the index
@@ -860,7 +860,6 @@ public: // Write/read restart data
 
 
 protected:                                                         // Internal data
-    AMP::Units d_units;                                            // Optional units for the data
     std::shared_ptr<Variable> d_Variable;                          // Variable
     std::shared_ptr<AMP::Discretization::DOFManager> d_DOFManager; // The DOF_Manager
     std::shared_ptr<VectorData> d_VectorData;                      // Pointer to data

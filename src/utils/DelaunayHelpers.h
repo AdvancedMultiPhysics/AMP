@@ -294,6 +294,9 @@ double calcVolume( const std::array<TYPE, NDIM> *x )
  * We will work in a reduced coordinate system with x1 at the center     *
  *    so that we can reduce the size of the determinant and the number   *
  *    of significant digits.                                             *
+ *    x2 = x2 - x1                                                       *
+ *    x3 = x3 - x1                                                       *
+ *    x4 = x4 - x1                                                       *
  *                                                                       *
  *     | x2-x1  y2-y1  z2-z1 |                                           *
  * a = | x3-x1  y3-y1  z3-z1 |                                           *
@@ -317,31 +320,26 @@ double calcVolume( const std::array<TYPE, NDIM> *x )
 template<int NDIM, class TYPE>
 void getCircumsphere( const std::array<TYPE, NDIM> *x0, double &R, double *center )
 {
-    using ETYPE = typename getETYPE<NDIM, TYPE>::ETYPE;
+    using ETYPE = typename getETYPE<NDIM + 1, TYPE>::ETYPE;
     if constexpr ( NDIM == 1 ) {
         center[0] = 0.5 * ( x0[0][0] + x0[1][0] );
         R         = 0.5 * std::abs( x0[0][0] - x0[1][0] );
         return;
     }
-    ETYPE x[NDIM * NDIM];
-    for ( int i = 0; i < NDIM; i++ ) {
-        for ( int j = 0; j < NDIM; j++ )
-            x[j + i * NDIM] = ETYPE( x0[i + 1][j] - x0[0][j] );
-    }
     ETYPE A[NDIM * NDIM], D[NDIM][NDIM * NDIM];
     for ( int i = 0; i < NDIM; i++ ) {
         ETYPE tmp( 0 );
         for ( int j = 0; j < NDIM; j++ ) {
-            ETYPE x2 = ETYPE( x[j + i * NDIM] );
-            tmp += x2 * x2;
-            A[i + j * NDIM] = x2;
+            ETYPE x = ETYPE( x0[i + 1][j] - x0[0][j] );
+            tmp += x * x;
+            A[i + j * NDIM] = x;
             for ( int k = j + 1; k < NDIM; k++ )
-                D[k][i + ( j + 1 ) * NDIM] = x2;
+                D[k][i + ( j + 1 ) * NDIM] = x;
             for ( int k = 0; k < j; k++ )
-                D[k][i + j * NDIM] = x2;
+                D[k][i + j * NDIM] = x;
         }
-        for ( auto &elem : D )
-            elem[i] = tmp;
+        for ( int k = 0; k < NDIM; k++ )
+            D[k][i] = tmp;
     }
     double a = static_cast<double>( DelaunayHelpers::det<ETYPE, NDIM>( A ) );
     R        = 0.0;

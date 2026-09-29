@@ -18,25 +18,28 @@ template<size_t NG>
 size_t count( const std::vector<std::array<int, NG + 1>> &tri );
 
 
+//! Structure to hold an STL triangle
+struct STL_Triangle {
+    float n[3]     = { 0, 0, 0 };
+    float v1[3]    = { 0, 0, 0 };
+    float v2[3]    = { 0, 0, 0 };
+    float v3[3]    = { 0, 0, 0 };
+    int16_t attrib = 0;
+};
+
+
 //! Read an STL file
-std::vector<std::array<std::array<double, 3>, 3>> readSTL( const std::string &filename,
-                                                           double scale );
+std::vector<STL_Triangle> readSTL( const std::string &filename, double scale );
 
 //! Read the header for an STL file
 size_t readSTLHeader( const std::string &filename );
 
 
 //! Create triangles/vertices from a set of triangles specified by their coordinates
-template<size_t NG, size_t NP>
-void createTriangles( const std::vector<std::array<std::array<double, NP>, NG + 1>> &tri_list,
-                      std::vector<std::array<double, NP>> &vertices,
-                      std::vector<std::array<int, NG + 1>> &triangles,
+void createTriangles( const std::vector<STL_Triangle> &tri_list,
+                      std::vector<std::array<double, 3>> &vertices,
+                      std::vector<std::array<int, 3>> &triangles,
                       double tol );
-
-//! Create triangles neighbors from the triangles
-template<size_t NG>
-std::vector<std::vector<std::array<int, NG + 1>>>
-splitDomains( std::vector<std::array<int, NG + 1>> tri );
 
 //! Read an STL file and generate a mesh (triangle mesh or multi-mesh)
 std::shared_ptr<AMP::Mesh::Mesh>
@@ -62,14 +65,12 @@ std::shared_ptr<AMP::Mesh::Mesh> generate( std::shared_ptr<const MeshParameters>
  * \param splitDomain   Split multi-domain objects into seperate meshes (returning a multimesh)
  * \param loadBalanceMethod  Load balance method to use (only used if splitting multi-domain)
  */
-template<size_t NG, size_t NP = 3>
-std::shared_ptr<AMP::Mesh::Mesh>
-generate( const std::vector<std::array<std::array<double, NP>, NG + 1>> &triangles,
-          const AMP_MPI &comm,
-          const std::string &name,
-          double tol            = 1e-12,
-          bool splitDomain      = true,
-          int loadBalanceMethod = 1 );
+std::shared_ptr<AMP::Mesh::Mesh> generate( const std::vector<STL_Triangle> &triangles,
+                                           const AMP_MPI &comm,
+                                           const std::string &name,
+                                           double tol            = 1e-12,
+                                           bool splitDomain      = true,
+                                           int loadBalanceMethod = 1 );
 
 
 //! Estimate Mesh size

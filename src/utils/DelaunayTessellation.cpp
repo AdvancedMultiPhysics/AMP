@@ -2,7 +2,6 @@
 #include "AMP/AMP_TPLs.h"
 #include "AMP/IO/HDF.h"
 #include "AMP/utils/DelaunayFaceList.h"
-#include "AMP/utils/DelaunayFaceList.hpp"
 #include "AMP/utils/DelaunayHelpers.h"
 #include "AMP/utils/NearestPairSearch.h"
 #include "AMP/utils/Utilities.h"
@@ -568,7 +567,7 @@ template<int NDIM>
 static bool
 test_flip_valid( const std::array<int, NDIM> x[], const int i, const std::array<int, NDIM> &xi )
 {
-    auto L        = DelaunayHelpers::computeBarycentric<NDIM, int>( x, xi.data() );
+    auto L        = DelaunayHelpers::computeBarycentric<NDIM>( x, xi.data() );
     bool is_valid = true;
     for ( int j = 0; j <= NDIM; j++ )
         is_valid = is_valid && ( j == i || L[j] >= 0 );

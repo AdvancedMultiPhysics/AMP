@@ -26,6 +26,7 @@ ENDIF()
 # Add HDF5 tests
 IF ( USE_HDF5 )
     ADD_AMP_EXECUTABLE( view_HDF5 )
+    ADD_AMP_EXECUTABLE( view_STL )
     ADD_AMP_TEST( test_HDF5 )
     ADD_AMP_TEST( view_HDF5 test_HDF5.hdf5 DEPENDS test_HDF5 )
     ADD_AMP_TEST( test_XDMF )

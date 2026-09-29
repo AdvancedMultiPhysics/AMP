@@ -8,6 +8,7 @@
 
 #include "ProfilerApp.h"
 
+#include <array>
 #include <stdint.h>
 #include <stdlib.h>
 #include <vector>
@@ -16,13 +17,24 @@
 #define DEBUG_CHECK 0 // Flag to enable extra checks (1: some additional cost, 2: very expensive)
 
 
+#ifdef __SIZEOF_INT128__
+DISABLE_WARNINGS
+typedef __int128 int128_t;
+ENABLE_WARNINGS
+#else
+DISABLE_WARNINGS
+typedef AMP::extended::int128_t int128_t;
+ENABLE_WARNINGS
+#endif
+
+
 namespace AMP::DelaunayTessellation {
 
 
 /********************************************************************
  * Check if we conserve the neighbor triangles for two sets          *
  ********************************************************************/
-static bool conserved_neighbors( const int N1, const int list1[], const int N2, const int list2[] )
+bool conserved_neighbors( const int N1, const int list1[], const int N2, const int list2[] )
 {
     if ( N1 > 16 || N2 > 16 ) {
         printf( "Need to change internal data structures\n" );
@@ -105,7 +117,7 @@ bool are_tri_neighbors( const int ndim, const int tri1[], const int tri2[], int 
 
 
 /********************************************************************
- * This function performs a set of test taht checks that each        *
+ * This function performs a set of test that checks that each        *
  *    triangle is valid and that the triangle neighbors are valid.   *
  * Note: This can be an expensive test and should only be used when  *
  *    debugging.                                                     *
@@ -191,6 +203,18 @@ bool check_current_triangles( int N,
     }
     return pass;
 }
+template bool check_current_triangles<2>( int,
+                                          const std::array<int, 2>[],
+                                          size_t,
+                                          const std::array<int, 3>[],
+                                          const std::array<int, 3>[],
+                                          const std::vector<size_t> & );
+template bool check_current_triangles<3>( int,
+                                          const std::array<int, 3>[],
+                                          size_t,
+                                          const std::array<int, 4>[],
+                                          const std::array<int, 4>[],
+                                          const std::vector<size_t> & );
 
 
 /********************************************************************
@@ -649,26 +673,22 @@ void DelaunayTessellation::FaceList<NDIM>::update_face( const int N,
  *    | (A1-An).e1  (A1-An).e2  ...  (A1-An).en |                    *
  *                                                                   *
  ********************************************************************/
-template<int NDIM>
-std::array<int64_t, NDIM>
-DelaunayTessellation::FaceList<NDIM>::calc_surface_normal( const std::array<int, NDIM> *x )
+constexpr std::array<int, 2> calc_surface_normal( const std::array<int, 2> *x )
 {
-    std::array<int64_t, NDIM> norm;
-    if constexpr ( NDIM == 1 ) {
-        norm[0] = int64_t( 1 );
-    } else if constexpr ( NDIM == 2 ) {
-        norm[0] = x[0][1] - x[1][1];
-        norm[1] = x[1][0] - x[0][0];
-    } else if constexpr ( NDIM == 3 ) {
-        norm[0] = int64_t( x[0][1] - x[1][1] ) * int64_t( x[0][2] - x[2][2] ) -
-                  int64_t( x[0][2] - x[1][2] ) * int64_t( x[0][1] - x[2][1] );
-        norm[1] = int64_t( x[0][2] - x[1][2] ) * int64_t( x[0][0] - x[2][0] ) -
-                  int64_t( x[0][0] - x[1][0] ) * int64_t( x[0][2] - x[2][2] );
-        norm[2] = int64_t( x[0][0] - x[1][0] ) * int64_t( x[0][1] - x[2][1] ) -
-                  int64_t( x[0][1] - x[1][1] ) * int64_t( x[0][0] - x[2][0] );
-    } else {
-        AMP_ERROR( "Invalid dimension" );
-    }
+    std::array<int, 2> norm = { 0 };
+    norm[0]                 = x[0][1] - x[1][1];
+    norm[1]                 = x[1][0] - x[0][0];
+    return norm;
+}
+constexpr std::array<int64_t, 3> calc_surface_normal( const std::array<int, 3> *x )
+{
+    std::array<int64_t, 3> norm = { 0 };
+    norm[0]                     = int64_t( x[0][1] - x[1][1] ) * int64_t( x[0][2] - x[2][2] ) -
+              int64_t( x[0][2] - x[1][2] ) * int64_t( x[0][1] - x[2][1] );
+    norm[1] = int64_t( x[0][2] - x[1][2] ) * int64_t( x[0][0] - x[2][0] ) -
+              int64_t( x[0][0] - x[1][0] ) * int64_t( x[0][2] - x[2][2] );
+    norm[2] = int64_t( x[0][0] - x[1][0] ) * int64_t( x[0][1] - x[2][1] ) -
+              int64_t( x[0][1] - x[1][1] ) * int64_t( x[0][0] - x[2][0] );
     return norm;
 }
 
@@ -683,28 +703,44 @@ DelaunayTessellation::FaceList<NDIM>::calc_surface_normal( const std::array<int,
  * Note: this uses a mixture of exact and inexact math, but should   *
  *   be accurate.  The exact math portion requires N^D precision.    *
  ********************************************************************/
-template<int NDIM>
-bool DelaunayTessellation::FaceList<NDIM>::outside_triangle( const std::array<int, NDIM> *x,
-                                                             const std::array<int, NDIM> &xi ) const
+static inline int64_t dot2( const std::array<int, 2> &x, const std::array<int, 2> &y )
 {
-    // First compute the normal
-    // Note: the normal is not normalized and may point inward
-    auto norm = calc_surface_normal( x );
-    // Compute the distance from the surface
-    using ETYPE = typename AMP::DelaunayHelpers::getETYPE<NDIM, int>::ETYPE;
-    ETYPE dist2( 0 );
-    double dot = 0.0;
-    double tmp = 0.0;
-    for ( int i = 0; i < NDIM; i++ ) {
-        double norm2 = static_cast<double>( norm[i] );
-        dot += norm2 * ( x[0][i] - xc[i] );
-        dist2 += ETYPE( norm[i] ) * ETYPE( xi[i] - x[0][i] );
-        tmp += norm2 * norm2;
-    }
-    double sign = ( dot < 0 ) ? -1.0 : 1.0;
-    double dist = sign * static_cast<double>( dist2 ) / std::sqrt( tmp );
-    return dist > 0;
+    return int64_t( x[0] ) * int64_t( y[0] ) + int64_t( x[1] ) * int64_t( y[1] );
 }
+static inline int128_t dot3( const std::array<int64_t, 3> &x, const std::array<int, 3> &y )
+{
+    return int128_t( x[0] ) * int128_t( y[0] ) + int128_t( x[1] ) * int128_t( y[1] ) +
+           int128_t( x[2] ) * int128_t( y[2] );
+}
+template<>
+bool DelaunayTessellation::FaceList<2>::outside_triangle( const std::array<int, 2> *x,
+                                                          const std::array<int, 2> &xi ) const
+{
+    auto norm  = calc_surface_normal( x );
+    auto dist2 = dot2( norm, { xi[0] - x[0][0], xi[1] - x[0][1] } );
+    double dot = static_cast<double>( norm[0] ) * ( x[0][0] - xc[0] ) +
+                 static_cast<double>( norm[1] ) * ( x[0][1] - xc[1] );
+    if ( dot < 0 )
+        dist2 = -dist2;
+    return dist2 > 0;
+}
+template<>
+bool DelaunayTessellation::FaceList<3>::outside_triangle( const std::array<int, 3> *x,
+                                                          const std::array<int, 3> &xi ) const
+{
+    auto norm  = calc_surface_normal( x );
+    auto dist2 = dot3( norm, { xi[0] - x[0][0], xi[1] - x[0][1], xi[2] - x[0][2] } );
+    double dot = static_cast<double>( norm[0] ) * ( x[0][0] - xc[0] ) +
+                 static_cast<double>( norm[1] ) * ( x[0][1] - xc[1] ) +
+                 static_cast<double>( norm[2] ) * ( x[0][2] - xc[2] );
+    if ( dot < 0 )
+        dist2 = -dist2;
+    return dist2 > 0;
+}
+
+
+template class DelaunayTessellation::FaceList<2>;
+template class DelaunayTessellation::FaceList<3>;
 
 
 } // namespace AMP::DelaunayTessellation

@@ -93,9 +93,6 @@ public:
                       const Triangle *tri );
 
 private:
-    static std::array<int64_t, NDIM> calc_surface_normal( const std::array<int, NDIM> x[] );
-
-private:
     // Private constructors
     FaceList();                              // Empty constructor.
     FaceList( const FaceList & );            // no implementation for copy
@@ -130,6 +127,23 @@ private:
     // Function to check that the internal data is valid
     void check_data();
 };
+
+
+// Check if two given triangles share a face
+bool are_tri_neighbors( const int ndim, const int tri1[], const int tri2[], int *f1, int *f2 );
+
+// Check if we conserve the neighbor triangles for two sets
+bool conserved_neighbors( const int N1, const int list1[], const int N2, const int list2[] );
+
+// Check the triangles
+template<int NDIM>
+bool check_current_triangles( int N,
+                              const std::array<int, NDIM> x[],
+                              size_t N_tri,
+                              const std::array<int, NDIM + 1> tri[],
+                              const std::array<int, NDIM + 1> tri_nab[],
+                              const std::vector<size_t> &unused );
+
 
 } // namespace AMP::DelaunayTessellation
 

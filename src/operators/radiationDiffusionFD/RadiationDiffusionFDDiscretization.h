@@ -1,21 +1,13 @@
 #ifndef RAD_DIF_FD_DISCRETIZATION
 #define RAD_DIF_FD_DISCRETIZATION
 
-#include "AMP/IO/AsciiWriter.h"
-#include "AMP/IO/PIO.h"
 #include "AMP/discretization/MultiDOF_Manager.h"
-#include "AMP/discretization/boxMeshDOFManager.h"
-#include "AMP/geometry/shapes/Box.h"
-#include "AMP/matrices/MatrixBuilder.h"
 #include "AMP/mesh/structured/BoxMesh.h"
 #include "AMP/mesh/structured/structuredMeshElement.h"
 #include "AMP/operators/LinearOperator.h"
 #include "AMP/operators/Operator.h"
 #include "AMP/operators/OperatorParameters.h"
-#include "AMP/utils/AMPManager.h"
-#include "AMP/vectors/MultiVector.h"
 #include "AMP/vectors/Vector.h"
-#include "AMP/vectors/VectorBuilder.h"
 
 #include <optional>
 #include <variant>
