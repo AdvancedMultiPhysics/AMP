@@ -264,6 +264,8 @@ double KeyData::convertUnits( const Units &unit, std::string_view key ) const
 {
     if ( unit.isNull() )
         return 1.0;
+    if ( d_unit.isNull() && unit.getType() == AMP::UnitType::unitless )
+        return Units(AMP::UnitType::unitless).convert( unit );
     DATABASE_INSIST(
         !d_unit.isNull(), SOURCE_LOCATION_CURRENT(), "Field %s must have units", key.data() );
     return d_unit.convert( unit );
