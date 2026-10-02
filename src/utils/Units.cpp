@@ -111,7 +111,7 @@ static_assert( Units( "radian" ).getType() == UnitType::angle );
 static_assert( Units( "V" ) * Units( "A" ) == Units( "W" ) );
 static_assert( Units( "W/m^2" ) == Units( "uW/mm^2" ) );
 static_assert( approx_equal( Units( "J" ).convert( Units( "ergs" ) ), 1e7 ) );
-static_assert( approx_equal( Units( "eV" ).convert( Units( "K" ) ), 11604.51996505152 ) );
+static_assert( approx_equal( Units( "eV" ).convert( Units( "K" ) ), 11604.51812155 ) );
 static_assert( approx_equal( Units( "qt" ).convert( Units( "pt" ) ), 2 ) );
 static_assert( approx_equal( Units( "gal" ).convert( Units( "pt" ) ), 8 ) );
 static_assert( approx_equal( Units( "lb" ).convert( Units( "oz" ) ), 16 ) );

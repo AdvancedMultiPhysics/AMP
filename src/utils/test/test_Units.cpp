@@ -62,6 +62,11 @@ void checkOperators( AMP::UnitTest &ut )
     pass = pass && x * y == Units( "W" );
     pass = pass && x.pow( 3 ) == Units( "V^3" );
     pass = pass && x / y == Units( "V/A" );
+    pass = pass && x / y == Units( "V /A" );
+    pass = pass && x / y == Units( "V / A" );
+    pass = pass && x * x / y == Units( "V / A V" );
+    pass = pass && x * x / y == Units( "(V / A) V" );
+
     // Try catching an error
     try {
         Units z( "m/s garbage" );
@@ -253,8 +258,8 @@ int main( int argc, char *argv[] )
     check( ut, "%", "percent" );
     check( ut, "m^0", " " );
     check( ut, "barye", "Ba", "0.1 Pa" );
-    check( ut, "eV", "K", 11604.51996505152 );
-    check( ut, "K", "eV", 8.617331893190124e-5 );
+    check( ut, "eV", "K", 11604.51812155 );
+    check( ut, "K", "eV", 8.617333262e-5 );
     check( ut, "minute", "s", 60 );
     check( ut, "hour", "hr", "60 minutes" );
     check( ut, "day", "hour", 24 );

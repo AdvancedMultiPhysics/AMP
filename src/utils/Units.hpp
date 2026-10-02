@@ -212,6 +212,10 @@ constexpr Units Units::read( std::string_view str )
                 v[N++] = str.substr( i + 1, i2 - i - 1 );
                 i      = i3 + 1;
             }
+        } else if ( tmp.second == '/') {
+            v[N++] = str.substr( i, i2 - i );
+            i      = i2 + 1;
+            for ( ; i < str.size() && ( str[i] == ' ' ); i++ ) {}
         } else {
             v[N++] = str.substr( i, i2 - i );
             i      = i2 + 1;
@@ -608,10 +612,10 @@ constexpr double Units::convert( const Units &rhs ) const
         return d_scale / rhs.d_scale;
     } else if ( d_SI == energy && rhs.d_SI == temperature ) {
         // Convert from energy to temperature (using bolztmann constant)
-        return 7.242971666663E+22 * d_scale / rhs.d_scale;
+        return 7.242970516E+22 * d_scale / rhs.d_scale;
     } else if ( d_SI == temperature && rhs.d_SI == energy ) {
         // Convert from temperature to energy (using bolztmann constant)
-        return 1.38064878066922E-23 * d_scale / rhs.d_scale;
+        return 1.380649e-23 * d_scale / rhs.d_scale;
     } else {
         throw std::logic_error( "Incompatible units: " + printSIBase() + " - " +
                                 rhs.printSIBase() );
